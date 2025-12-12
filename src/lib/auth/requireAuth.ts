@@ -1,0 +1,115 @@
+import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
+import type { User } from '@supabase/supabase-js';
+
+/**
+ * Require authenticated user. Redirects to /signin if not logged in.
+ * Use in Server Components and Route Handlers.
+ */
+export async function requireAuth(): Promise<User> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect('/signin');
+  }
+
+  return user;
+}
+
+/**
+ * Get current user without redirecting.
+ * Returns null if not authenticated.
+ */
+export async function getUser(): Promise<User | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  return user;
+}
+
+/**
+ * Require employer role. Checks for company_users row.
+ * Redirects to /account?setup=employer if no company association.
+ */
+export async function requireEmployer() {
+  const user = await requireAuth();
+  const supabase = await createClient();
+
+  const { data: companyUser } = await supabase
+    .from('company_users')
+    .select(
+      `
+      *,
+      company:companies(*)
+    `
+    )
+    .eq('user_id', user.id)
+    .eq('is_active', true)
+    .single();
+
+  if (!companyUser) {
+    redirect('/account?setup=employer');
+  }
+
+  return { user, companyUser };
+}
+
+/**
+ * Require candidate role. Checks for candidates row.
+ * Redirects to /account?setup=candidate if no candidate profile.
+ */
+export async function requireCandidate() {
+  const user = await requireAuth();
+  const supabase = await createClient();
+
+  const { data: candidate } = await supabase
+    .from('candidates')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('is_active', true)
+    .single();
+
+  if (!candidate) {
+    redirect('/account?setup=candidate');
+  }
+
+  return { user, candidate };
+}
+
+/**
+ * Get user's role based on their table presence.
+ * Returns 'employer' | 'candidate' | 'both' | null
+ */
+export async function getUserRole(
+  userId: string
+): Promise<'employer' | 'candidate' | 'both' | null> {
+  const supabase = await createClient();
+
+  const [{ data: companyUser }, { data: candidate }] = await Promise.all([
+    supabase
+      .from('company_users')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .single(),
+    supabase
+      .from('candidates')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .single(),
+  ]);
+
+  const isEmployer = !!companyUser;
+  const isCandidate = !!candidate;
+
+  if (isEmployer && isCandidate) return 'both';
+  if (isEmployer) return 'employer';
+  if (isCandidate) return 'candidate';
+  return null;
+}
