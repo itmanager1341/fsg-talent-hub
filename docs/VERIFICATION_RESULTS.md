@@ -302,13 +302,20 @@ Record outcomes (PASS/FAIL) + any errors in this doc under “Notes / follow-ups
 
 ## 1) Snapshot metadata
 
-- **Date/time**:
+- **Date/time**: 2025-12-14
 - **Environment**: Supabase (online)
-- **Who ran it**:
+- **Who ran it**: MCP (server `project-0-fsg-talent-hub-supabase`)
 
 ### Output: `current_user` / `version()`
 
-PASTE HERE
+```json
+[
+  {
+    "current_user": "postgres",
+    "version": "PostgreSQL 17.6 on aarch64-unknown-linux-gnu, compiled by gcc (GCC) 13.2.0, 64-bit"
+  }
+]
+```
 
 ---
 
@@ -316,11 +323,38 @@ PASTE HERE
 
 ### Output: public tables
 
-PASTE HERE
+```json
+[
+  { "schemaname": "public", "tablename": "applications" },
+  { "schemaname": "public", "tablename": "associations" },
+  { "schemaname": "public", "tablename": "candidates" },
+  { "schemaname": "public", "tablename": "companies" },
+  { "schemaname": "public", "tablename": "company_users" },
+  { "schemaname": "public", "tablename": "job_alerts" },
+  { "schemaname": "public", "tablename": "jobs" },
+  { "schemaname": "public", "tablename": "saved_jobs" },
+  { "schemaname": "public", "tablename": "user_roles" }
+]
+```
 
 ### Output: storage buckets
 
-PASTE HERE
+```json
+[
+  {
+    "id": "company-logos",
+    "name": "company-logos",
+    "public": true,
+    "created_at": "2025-12-12 22:45:44.986126+00"
+  },
+  {
+    "id": "resumes",
+    "name": "resumes",
+    "public": false,
+    "created_at": "2025-12-12 22:45:44.986126+00"
+  }
+]
+```
 
 ---
 
@@ -328,11 +362,56 @@ PASTE HERE
 
 ### Output: policies for core public tables
 
-PASTE HERE
+```json
+[
+  { "schemaname": "public", "tablename": "applications", "policyname": "Admins can view all applications", "permissive": "PERMISSIVE", "roles": "{authenticated}", "cmd": "SELECT", "qual": "is_admin()", "with_check": null },
+  { "schemaname": "public", "tablename": "applications", "policyname": "Candidates can create applications", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "INSERT", "qual": null, "with_check": "(EXISTS ( SELECT 1\\n   FROM candidates\\n  WHERE ((candidates.id = applications.candidate_id) AND (candidates.user_id = auth.uid()))))" },
+  { "schemaname": "public", "tablename": "applications", "policyname": "Candidates can update their applications", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "UPDATE", "qual": "(EXISTS ( SELECT 1\\n   FROM candidates\\n  WHERE ((candidates.id = applications.candidate_id) AND (candidates.user_id = auth.uid()))))", "with_check": null },
+  { "schemaname": "public", "tablename": "applications", "policyname": "Candidates can view their applications", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "SELECT", "qual": "(EXISTS ( SELECT 1\\n   FROM candidates\\n  WHERE ((candidates.id = applications.candidate_id) AND (candidates.user_id = auth.uid()))))", "with_check": null },
+  { "schemaname": "public", "tablename": "applications", "policyname": "Employers can update application status", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "UPDATE", "qual": "(EXISTS ( SELECT 1\\n   FROM (jobs\\n     JOIN company_users ON ((company_users.company_id = jobs.company_id)))\\n  WHERE ((jobs.id = applications.job_id) AND (company_users.user_id = auth.uid()) AND (company_users.role = ANY (ARRAY['owner'::text, 'recruiter'::text])))))", "with_check": null },
+  { "schemaname": "public", "tablename": "applications", "policyname": "Employers can view applications for their jobs", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "SELECT", "qual": "(EXISTS ( SELECT 1\\n   FROM (jobs\\n     JOIN company_users ON ((company_users.company_id = jobs.company_id)))\\n  WHERE ((jobs.id = applications.job_id) AND (company_users.user_id = auth.uid()))))", "with_check": null },
+  { "schemaname": "public", "tablename": "candidates", "policyname": "Admins can read all candidates", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "SELECT", "qual": "is_admin()", "with_check": null },
+  { "schemaname": "public", "tablename": "candidates", "policyname": "Admins can update candidates", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "UPDATE", "qual": "is_admin()", "with_check": "is_admin()" },
+  { "schemaname": "public", "tablename": "candidates", "policyname": "Admins can view all candidates", "permissive": "PERMISSIVE", "roles": "{authenticated}", "cmd": "SELECT", "qual": "is_admin()", "with_check": null },
+  { "schemaname": "public", "tablename": "candidates", "policyname": "Candidates can insert their own profile", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "INSERT", "qual": null, "with_check": "(user_id = auth.uid())" },
+  { "schemaname": "public", "tablename": "candidates", "policyname": "Candidates can update their own profile", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "UPDATE", "qual": "(user_id = auth.uid())", "with_check": null },
+  { "schemaname": "public", "tablename": "candidates", "policyname": "Candidates can view their own profile", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "SELECT", "qual": "(user_id = auth.uid())", "with_check": null },
+  { "schemaname": "public", "tablename": "candidates", "policyname": "Employers can view candidates (feature-flagged)", "permissive": "PERMISSIVE", "roles": "{authenticated}", "cmd": "SELECT", "qual": "((is_active = true) AND employer_can_view_candidate(id))", "with_check": null },
+  { "schemaname": "public", "tablename": "companies", "policyname": "Active companies are viewable by everyone", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "SELECT", "qual": "(is_active = true)", "with_check": null },
+  { "schemaname": "public", "tablename": "companies", "policyname": "Admins can read all companies", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "SELECT", "qual": "is_admin()", "with_check": null },
+  { "schemaname": "public", "tablename": "companies", "policyname": "Admins can update companies", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "UPDATE", "qual": "is_admin()", "with_check": "is_admin()" },
+  { "schemaname": "public", "tablename": "companies", "policyname": "Admins can view all companies", "permissive": "PERMISSIVE", "roles": "{authenticated}", "cmd": "SELECT", "qual": "is_admin()", "with_check": null },
+  { "schemaname": "public", "tablename": "companies", "policyname": "Company team members can update their company", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "UPDATE", "qual": "(EXISTS ( SELECT 1\\n   FROM company_users\\n  WHERE ((company_users.company_id = companies.id) AND (company_users.user_id = auth.uid()) AND (company_users.role = ANY (ARRAY['owner'::text, 'recruiter'::text])))))", "with_check": null },
+  { "schemaname": "public", "tablename": "company_users", "policyname": "Admins can view all company users", "permissive": "PERMISSIVE", "roles": "{authenticated}", "cmd": "SELECT", "qual": "is_admin()", "with_check": null },
+  { "schemaname": "public", "tablename": "company_users", "policyname": "Owners can manage company team (delete)", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "DELETE", "qual": "is_company_owner(company_id)", "with_check": null },
+  { "schemaname": "public", "tablename": "company_users", "policyname": "Owners can manage company team (insert)", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "INSERT", "qual": null, "with_check": "is_company_owner(company_id)" },
+  { "schemaname": "public", "tablename": "company_users", "policyname": "Owners can manage company team (update)", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "UPDATE", "qual": "is_company_owner(company_id)", "with_check": "is_company_owner(company_id)" },
+  { "schemaname": "public", "tablename": "company_users", "policyname": "Users can view their company team", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "SELECT", "qual": "((user_id = auth.uid()) OR is_company_member(company_id))", "with_check": null },
+  { "schemaname": "public", "tablename": "jobs", "policyname": "Active jobs are viewable by everyone", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "SELECT", "qual": "(status = 'active'::job_status)", "with_check": null },
+  { "schemaname": "public", "tablename": "jobs", "policyname": "Admins can view all jobs", "permissive": "PERMISSIVE", "roles": "{authenticated}", "cmd": "SELECT", "qual": "is_admin()", "with_check": null },
+  { "schemaname": "public", "tablename": "jobs", "policyname": "Company team can insert jobs", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "INSERT", "qual": null, "with_check": "(EXISTS ( SELECT 1\\n   FROM company_users\\n  WHERE ((company_users.company_id = jobs.company_id) AND (company_users.user_id = auth.uid()) AND (company_users.role = ANY (ARRAY['owner'::text, 'recruiter'::text])))))" },
+  { "schemaname": "public", "tablename": "jobs", "policyname": "Company team can update their jobs", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "UPDATE", "qual": "(EXISTS ( SELECT 1\\n   FROM company_users\\n  WHERE ((company_users.company_id = jobs.company_id) AND (company_users.user_id = auth.uid()) AND (company_users.role = ANY (ARRAY['owner'::text, 'recruiter'::text])))))", "with_check": null },
+  { "schemaname": "public", "tablename": "jobs", "policyname": "Company team can view all their jobs", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "SELECT", "qual": "is_company_member(company_id)", "with_check": null },
+  { "schemaname": "public", "tablename": "jobs", "policyname": "Owners can delete jobs", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "DELETE", "qual": "(EXISTS ( SELECT 1\\n   FROM company_users\\n  WHERE ((company_users.company_id = jobs.company_id) AND (company_users.user_id = auth.uid()) AND (company_users.role = 'owner'::text))))", "with_check": null },
+  { "schemaname": "public", "tablename": "user_roles", "policyname": "Users can read own roles", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "SELECT", "qual": "(user_id = auth.uid())", "with_check": null },
+  { "schemaname": "public", "tablename": "user_roles", "policyname": "user_roles_self_read", "permissive": "PERMISSIVE", "roles": "{authenticated}", "cmd": "SELECT", "qual": "(user_id = auth.uid())", "with_check": null }
+]
+```
 
 ### Output: policies for storage.objects
 
-PASTE HERE
+```json
+[
+  { "schemaname": "storage", "tablename": "objects", "policyname": "Candidates can delete own resumes", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "DELETE", "qual": "((bucket_id = 'resumes'::text) AND ((auth.uid())::text = (storage.foldername(name))[1]))", "with_check": null },
+  { "schemaname": "storage", "tablename": "objects", "policyname": "Candidates can read own resumes", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "SELECT", "qual": "((bucket_id = 'resumes'::text) AND (((auth.uid())::text = (storage.foldername(name))[1]) OR (EXISTS ( SELECT 1\\n   FROM company_users cu\\n  WHERE ((cu.user_id = auth.uid()) AND (cu.is_active = true)))) OR (EXISTS ( SELECT 1\\n   FROM user_roles ur\\n  WHERE ((ur.user_id = auth.uid()) AND (ur.role = 'admin'::text))))))", "with_check": null },
+  { "schemaname": "storage", "tablename": "objects", "policyname": "Candidates can update own resumes", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "UPDATE", "qual": "((bucket_id = 'resumes'::text) AND ((auth.uid())::text = (storage.foldername(name))[1]))", "with_check": "((bucket_id = 'resumes'::text) AND ((auth.uid())::text = (storage.foldername(name))[1]))" },
+  { "schemaname": "storage", "tablename": "objects", "policyname": "Candidates can upload own resumes", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "INSERT", "qual": null, "with_check": "((bucket_id = 'resumes'::text) AND ((auth.uid())::text = (storage.foldername(name))[1]))" },
+  { "schemaname": "storage", "tablename": "objects", "policyname": "Company logos public read", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "SELECT", "qual": "(bucket_id = 'company-logos'::text)", "with_check": null },
+  { "schemaname": "storage", "tablename": "objects", "policyname": "Company team can delete logos", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "DELETE", "qual": "((bucket_id = 'company-logos'::text) AND (auth.uid() IN ( SELECT company_users.user_id\\n   FROM company_users\\n  WHERE ((company_users.company_id)::text = (storage.foldername(objects.name))[1]))))", "with_check": null },
+  { "schemaname": "storage", "tablename": "objects", "policyname": "Company team can update logos", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "UPDATE", "qual": "((bucket_id = 'company-logos'::text) AND (auth.uid() IN ( SELECT company_users.user_id\\n   FROM company_users\\n  WHERE ((company_users.company_id)::text = (storage.foldername(objects.name))[1]))))", "with_check": "((bucket_id = 'company-logos'::text) AND (auth.uid() IN ( SELECT company_users.user_id\\n   FROM company_users\\n  WHERE ((company_users.company_id)::text = (storage.foldername(objects.name))[1]))))" },
+  { "schemaname": "storage", "tablename": "objects", "policyname": "Company team can upload logos", "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "INSERT", "qual": null, "with_check": "((bucket_id = 'company-logos'::text) AND (auth.uid() IN ( SELECT company_users.user_id\\n   FROM company_users\\n  WHERE ((company_users.company_id)::text = (storage.foldername(objects.name))[1]))))" }
+]
+```
 
 ---
 
@@ -340,7 +419,17 @@ PASTE HERE
 
 ### Output: functions present (admin + company membership helpers)
 
-PASTE HERE
+```json
+[
+  { "schema": "public", "function_name": "employer_can_browse_all_candidates", "args": "", "security_definer": true },
+  { "schema": "public", "function_name": "employer_can_view_candidate", "args": "candidate_id uuid", "security_definer": true },
+  { "schema": "public", "function_name": "feature_flags_touch_updated_at", "args": "", "security_definer": false },
+  { "schema": "public", "function_name": "get_feature_flag", "args": "flag_key text", "security_definer": true },
+  { "schema": "public", "function_name": "is_admin", "args": "", "security_definer": true },
+  { "schema": "public", "function_name": "is_company_member", "args": "check_company_id uuid", "security_definer": true },
+  { "schema": "public", "function_name": "is_company_owner", "args": "check_company_id uuid", "security_definer": true }
+]
+```
 
 ---
 
@@ -348,15 +437,47 @@ PASTE HERE
 
 ### Output: counts by table
 
-PASTE HERE
+```json
+[
+  { "table_name": "applications", "row_count": 2 },
+  { "table_name": "candidates", "row_count": 1 },
+  { "table_name": "companies", "row_count": 1 },
+  { "table_name": "company_users", "row_count": 1 },
+  { "table_name": "jobs", "row_count": 3 },
+  { "table_name": "user_roles", "row_count": 1 }
+]
+```
 
 ### Output: sample company/job rows
 
-PASTE HERE
+```json
+{
+  "companies": [
+    { "id": "7b9cca03-9631-4c1f-9c19-9cf7775429ab", "name": "Test Employer Co", "slug": "test-employer-co", "is_active": true, "is_verified": true }
+  ],
+  "jobs": [
+    { "id": "7e0a90ee-1d2b-48a2-98bd-d96086eb6a72", "company_id": "7b9cca03-9631-4c1f-9c19-9cf7775429ab", "title": "V0 Smoke Test Role", "status": "active", "published_at": "2025-12-14 22:42:52.797+00" },
+    { "id": "22a4ca63-f6be-4a69-830c-3c088ec438c7", "company_id": "7b9cca03-9631-4c1f-9c19-9cf7775429ab", "title": "Test Role - Automation QA", "status": "active", "published_at": "2025-12-14 18:44:32.678+00" },
+    { "id": "75b9cc05-19c5-42e7-bfce-658a5ea8c995", "company_id": "7b9cca03-9631-4c1f-9c19-9cf7775429ab", "title": "Senior Analyst (Test)", "status": "active", "published_at": "2025-12-14 18:25:23.387367+00" }
+  ]
+}
+```
 
 ### Output: sample candidate rows (resume fields)
 
-PASTE HERE
+```json
+[
+  {
+    "id": "8c5bc43d-d113-4168-99d8-8549736b6938",
+    "user_id": "ae99f55c-57cb-4322-9f3e-571ba6a945a6",
+    "email": "candidate@test.com",
+    "resume_url": "ae99f55c-57cb-4322-9f3e-571ba6a945a6/1765751402063.docx",
+    "resume_filename": "meghan-hanna-resume-2021.docx",
+    "is_searchable": false,
+    "is_active": true
+  }
+]
+```
 
 ---
 
@@ -373,4 +494,16 @@ PASTE HERE
     - Candidate resume view: `GET /api/resumes/8c5bc43d-d113-4168-99d8-8549736b6938` → 200, then signed storage URL → 200
     - Employer resume view: `GET /api/resumes/8c5bc43d-d113-4168-99d8-8549736b6938` → 200, then signed storage URL → 200
   - **Minor**: automated click on “Sign Out” inside candidate dashboard failed once; using `/signout` consistently worked.
+
+- **Employer candidate visibility feature flag (DB/RLS)**: enabled
+  - **Flag**: `public.feature_flags.key = 'employer_browse_all_candidates'`
+  - **Current value**: `enabled = true`, `config = {"min_company_tier":"free"}`
+  - **Behavior**:
+    - When enabled: employers can browse **all active candidates**.
+    - When disabled: employers can browse **searchable candidates** (`is_searchable=true`) and can always see candidates who **applied to their jobs**.
+  - **How to change (SQL)**:
+    - Disable browse-all:
+      - `update public.feature_flags set enabled = false where key = 'employer_browse_all_candidates';`
+    - Require paid tier (standard+):
+      - `update public.feature_flags set enabled = true, config = jsonb_set(config, '{min_company_tier}', '\"standard\"') where key = 'employer_browse_all_candidates';`
 

@@ -444,6 +444,22 @@ USING (bucket_id = 'company-logos');
 
 ---
 
+## Future (post-V0): Automation regression suite (Playwright)
+
+Add a lightweight E2E regression suite so auth/RLS changes can’t silently break core flows.
+
+**Minimum test set (V0):**
+- **Public browsing**: `/` → `/jobs` → `/jobs/[id]` → `/companies` → `/companies/[slug]`
+- **Employer**: sign in → post job → view applications → update status → view resume (signed URL)
+- **Candidate**: sign in → upload/view resume → save job → apply → view applications
+- **Admin**: sign in → toggle candidate `is_searchable` and company `is_verified` (toggle back)
+
+**CI suggestion (V0.1)**:
+- Run on pull requests against a seeded staging DB snapshot (or a dedicated test project).
+- Fail fast on any 4xx/5xx on the above routes and on missing auth redirects.
+
+---
+
 ## What NOT To Do in V0
 
 * ❌ Do NOT create brand-specific routes (no `/fsi/jobs`, `/amaa/jobs` yet)
