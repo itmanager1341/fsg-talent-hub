@@ -18,6 +18,30 @@ interface SearchParams {
   page?: string;
 }
 
+function getEmbeddedCompanyName(companies: unknown): string | null {
+  if (!companies) return null;
+
+  // PostgREST can embed relations as either an object (many-to-one) or an array
+  // (one-to-many / ambiguous joins). We handle both defensively.
+  if (Array.isArray(companies)) {
+    const first = companies[0] as { name?: unknown } | undefined;
+    return typeof first?.name === 'string' ? first.name : null;
+  }
+
+  if (typeof companies === 'object') {
+    const maybeCompany = companies as { name?: unknown };
+    return typeof maybeCompany.name === 'string' ? maybeCompany.name : null;
+  }
+
+  return null;
+}
+
+/**
+ * Fetches paginated active jobs for `/jobs`, applying optional query-string filters.
+ *
+ * Note: If you see `42P17 infinite recursion detected in policy for relation "company_users"`,
+ * this is a Supabase RLS issue (not a frontend bug) and must be fixed in the Supabase SQL editor.
+ */
 async function getJobs(searchParams: SearchParams) {
   const supabase = await createClient();
 
@@ -38,6 +62,8 @@ async function getJobs(searchParams: SearchParams) {
       published_at,
       companies(name)
     `
+      ,
+      { count: 'exact' }
     )
     .eq('status', 'active')
     .order('published_at', { ascending: false });
@@ -78,16 +104,14 @@ async function getJobs(searchParams: SearchParams) {
   const { data, error, count } = await query;
 
   if (error) {
-    console.error('Error fetching jobs:', error);
+    console.error('Error fetching jobs:', error.message, error);
     return { jobs: [], totalCount: 0 };
   }
 
   const jobs: JobCardProps[] = (data || []).map((job) => ({
     id: job.id,
     title: job.title,
-    companyName: Array.isArray(job.companies)
-      ? job.companies[0]?.name ?? null
-      : null,
+    companyName: getEmbeddedCompanyName(job.companies),
     location:
       job.location_city && job.location_state
         ? `${job.location_city}, ${job.location_state}`

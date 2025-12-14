@@ -12,9 +12,31 @@ interface FeaturedJob {
   companyName: string | null;
 }
 
+function getEmbeddedCompanyName(companies: unknown): string | null {
+  if (!companies) return null;
+
+  if (Array.isArray(companies)) {
+    const first = companies[0] as { name?: unknown } | undefined;
+    return typeof first?.name === 'string' ? first.name : null;
+  }
+
+  if (typeof companies === 'object') {
+    const maybeCompany = companies as { name?: unknown };
+    return typeof maybeCompany.name === 'string' ? maybeCompany.name : null;
+  }
+
+  return null;
+}
+
+/**
+ * Loads the latest active jobs for the homepage.
+ *
+ * This is best-effort: failures (often due to Supabase RLS misconfiguration in dev)
+ * should not break the home page.
+ */
 async function getFeaturedJobs(): Promise<FeaturedJob[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('jobs')
     .select(
       `
@@ -30,6 +52,11 @@ async function getFeaturedJobs(): Promise<FeaturedJob[]> {
     .order('published_at', { ascending: false })
     .limit(6);
 
+  if (error) {
+    console.error('Error fetching featured jobs:', error.message, error);
+    return [];
+  }
+
   if (!data) return [];
 
   return data.map((job) => ({
@@ -38,7 +65,7 @@ async function getFeaturedJobs(): Promise<FeaturedJob[]> {
     location_city: job.location_city,
     location_state: job.location_state,
     work_setting: job.work_setting,
-    companyName: Array.isArray(job.companies) ? job.companies[0]?.name ?? null : null,
+    companyName: getEmbeddedCompanyName(job.companies),
   }));
 }
 

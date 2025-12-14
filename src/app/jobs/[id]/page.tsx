@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getUser } from '@/lib/auth/requireAuth';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
+import { SaveJobButton } from '@/components/jobs/SaveJobButton';
 
 interface JobDetails {
   id: string;
@@ -106,6 +107,39 @@ async function getJob(id: string): Promise<JobDetails | null> {
   } as JobDetails;
 }
 
+async function getCandidateAndSavedStatus(
+  userId: string | undefined,
+  jobId: string
+): Promise<{ candidateId: string | null; isSaved: boolean }> {
+  if (!userId) {
+    return { candidateId: null, isSaved: false };
+  }
+
+  const supabase = await createClient();
+
+  // Get candidate record
+  const { data: candidate } = await supabase
+    .from('candidates')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .single();
+
+  if (!candidate) {
+    return { candidateId: null, isSaved: false };
+  }
+
+  // Check if job is saved
+  const { data: saved } = await supabase
+    .from('saved_jobs')
+    .select('id')
+    .eq('candidate_id', candidate.id)
+    .eq('job_id', jobId)
+    .single();
+
+  return { candidateId: candidate.id, isSaved: !!saved };
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -131,6 +165,10 @@ export default async function JobDetailPage({
 }) {
   const { id } = await params;
   const [job, user] = await Promise.all([getJob(id), getUser()]);
+  const { candidateId, isSaved } = await getCandidateAndSavedStatus(
+    user?.id,
+    id
+  );
 
   if (!job) {
     notFound();
@@ -164,15 +202,22 @@ export default async function JobDetailPage({
                 <p className="mt-2 text-lg text-gray-600">{job.company.name}</p>
               )}
             </div>
-            {user ? (
-              <Link href={`/jobs/${id}/apply`}>
-                <Button size="lg">Apply Now</Button>
-              </Link>
-            ) : (
-              <Link href={`/signin?next=/jobs/${id}/apply`}>
-                <Button size="lg">Sign in to Apply</Button>
-              </Link>
-            )}
+            <div className="flex items-center gap-3">
+              <SaveJobButton
+                jobId={id}
+                candidateId={candidateId}
+                isSaved={isSaved}
+              />
+              {user ? (
+                <Link href={`/jobs/${id}/apply`}>
+                  <Button size="lg">Apply Now</Button>
+                </Link>
+              ) : (
+                <Link href={`/signin?next=/jobs/${id}/apply`}>
+                  <Button size="lg">Sign in to Apply</Button>
+                </Link>
+              )}
+            </div>
           </div>
 
           {/* Meta info */}

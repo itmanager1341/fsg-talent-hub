@@ -113,3 +113,28 @@ export async function getUserRole(
   if (isCandidate) return 'candidate';
   return null;
 }
+
+/**
+ * Require admin role.
+ *
+ * V0 note: Admin role is implemented via a `public.user_roles` table with
+ * `{ user_id, role }` rows (role='admin'). RLS must allow the signed-in user
+ * to read their own `user_roles` row; updates are handled via SQL/service role.
+ */
+export async function requireAdmin(): Promise<User> {
+  const user = await requireAuth();
+  const supabase = await createClient();
+
+  const { data: roleRow, error } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', user.id)
+    .eq('role', 'admin')
+    .single();
+
+  if (error || !roleRow) {
+    redirect('/');
+  }
+
+  return user;
+}

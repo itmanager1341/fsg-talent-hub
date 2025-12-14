@@ -23,36 +23,79 @@ export function SignInForm() {
     setLoading(true);
 
     try {
+      /**
+       * Prefer reading values from the submitted form.
+       *
+       * This keeps the handler resilient in cases where browser automation or
+       * password managers populate the DOM value but React state lags behind.
+       */
+      const form = e.currentTarget as HTMLFormElement;
+      const formData = new FormData(form);
+      const submittedEmail =
+        (typeof formData.get('email') === 'string'
+          ? String(formData.get('email'))
+          : email
+        ).trim();
+      const submittedPassword =
+        typeof formData.get('password') === 'string'
+          ? String(formData.get('password'))
+          : password;
+
       if (mode === 'signin') {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: submittedEmail,
+          password: submittedPassword,
         });
 
         if (error) {
-          setError(error.message);
+          // Helpful for debugging weird “nothing happens” cases in dev.
+          const debug = {
+            message: error.message,
+            status: (error as unknown as { status?: number }).status,
+            name: (error as unknown as { name?: string }).name,
+          };
+          console.error('Supabase sign-in error:', JSON.stringify(debug));
+          setError(error.message || 'Sign-in failed. Please try again.');
+        } else if (!data?.session) {
+          // In some edge cases Supabase can fail without surfacing an error.
+          // Make sure the user sees *something*.
+          console.error(
+            'Supabase sign-in returned no session and no error:',
+            JSON.stringify({ data })
+          );
+          setError(
+            'Sign-in did not complete. Please try again (or refresh the page).'
+          );
         } else {
           router.push('/account');
           router.refresh();
         }
       } else {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
+        const { data, error } = await supabase.auth.signUp({
+          email: submittedEmail,
+          password: submittedPassword,
           options: {
             emailRedirectTo: `${window.location.origin}/auth/callback`,
           },
         });
 
         if (error) {
-          setError(error.message);
+          const debug = {
+            message: error.message,
+            status: (error as unknown as { status?: number }).status,
+            name: (error as unknown as { name?: string }).name,
+          };
+          console.error('Supabase sign-up error:', JSON.stringify(debug));
+          setError(error.message || 'Sign-up failed. Please try again.');
         } else {
+          console.info('Supabase sign-up result:', data);
           setMessage(
             'Check your email for a confirmation link to complete your registration.'
           );
         }
       }
-    } catch {
+    } catch (err) {
+      console.error('Unexpected auth error:', err);
       setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -71,6 +114,7 @@ export function SignInForm() {
           </label>
           <input
             id="email"
+            name="email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -89,6 +133,7 @@ export function SignInForm() {
           </label>
           <input
             id="password"
+            name="password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
