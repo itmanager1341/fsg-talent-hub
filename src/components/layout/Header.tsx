@@ -3,9 +3,13 @@ import type { User } from '@supabase/supabase-js';
 
 interface HeaderProps {
   user?: User | null;
+  role?: 'employer' | 'candidate' | 'both' | null;
+  isAdmin?: boolean;
 }
 
-export function Header({ user }: HeaderProps) {
+export function Header({ user, role, isAdmin }: HeaderProps) {
+  const canViewCandidates = !!user && (role === 'employer' || role === 'both' || isAdmin);
+
   return (
     <header className="border-b border-gray-200 bg-white">
       <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -21,11 +25,33 @@ export function Header({ user }: HeaderProps) {
               Find Jobs
             </Link>
             <Link
+              href="/companies"
+              className="text-sm font-medium text-gray-600 hover:text-gray-900"
+            >
+              Companies
+            </Link>
+            <Link
               href="/employers"
               className="text-sm font-medium text-gray-600 hover:text-gray-900"
             >
               For Employers
             </Link>
+            {canViewCandidates && (
+              <Link
+                href="/candidates"
+                className="text-sm font-medium text-gray-600 hover:text-gray-900"
+              >
+                Candidates
+              </Link>
+            )}
+            {user && isAdmin && (
+              <Link
+                href="/admin"
+                className="text-sm font-medium text-gray-600 hover:text-gray-900"
+              >
+                Admin
+              </Link>
+            )}
             {user ? (
               <Link
                 href="/account"

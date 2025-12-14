@@ -28,8 +28,33 @@ export function ResumeUpload({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isOpening, setIsOpening] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
+
+  const openResume = async () => {
+    try {
+      setError(null);
+      setIsOpening(true);
+
+      const res = await fetch(`/api/resumes/${candidateId}`, { method: 'GET' });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error || 'Failed to open resume');
+      }
+
+      const body = (await res.json()) as { url?: string };
+      if (!body.url) {
+        throw new Error('No resume URL returned');
+      }
+
+      window.open(body.url, '_blank', 'noopener,noreferrer');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to open resume');
+    } finally {
+      setIsOpening(false);
+    }
+  };
 
   const handleFileSelect = async (file: File) => {
     setError(null);
@@ -136,14 +161,14 @@ export function ResumeUpload({
             </div>
           </div>
           <div className="flex gap-2">
-            <a
-              href={currentResumeUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={openResume}
+              disabled={isOpening}
             >
-              View
-            </a>
+              {isOpening ? 'Opening...' : 'View'}
+            </Button>
             <Button
               variant="outline"
               size="sm"

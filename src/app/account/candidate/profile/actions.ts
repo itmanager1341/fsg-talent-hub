@@ -8,6 +8,29 @@ interface ActionResult {
   success?: boolean;
 }
 
+/**
+ * Extracts the storage object name for a resume stored in the `resumes` bucket.
+ *
+ * Historical note: earlier versions stored a public URL in `candidates.resume_url`.
+ * Current behavior stores the *object name* (e.g. `{userId}/{fileName}`) so we can
+ * keep the bucket private and serve downloads via signed URLs.
+ */
+function extractResumeObjectName(maybeUrlOrPath: string): string | null {
+  if (!maybeUrlOrPath) return null;
+
+  // If it looks like a URL, try to pull the portion after `/resumes/`.
+  if (maybeUrlOrPath.startsWith('http://') || maybeUrlOrPath.startsWith('https://')) {
+    const parts = maybeUrlOrPath.split('/resumes/');
+    if (parts[1]) return parts[1];
+    // Fall back to last path segment (best-effort).
+    const last = maybeUrlOrPath.split('/').pop();
+    return last || null;
+  }
+
+  // Otherwise treat it as an object name already.
+  return maybeUrlOrPath;
+}
+
 export async function uploadResume(formData: FormData): Promise<ActionResult> {
   const user = await requireAuth();
   const supabase = await createClient();
@@ -32,9 +55,9 @@ export async function uploadResume(formData: FormData): Promise<ActionResult> {
 
   // Delete old resume if exists
   if (candidate.resume_url) {
-    const oldPath = candidate.resume_url.split('/').pop();
-    if (oldPath) {
-      await supabase.storage.from('resumes').remove([`${user.id}/${oldPath}`]);
+    const oldObjectName = extractResumeObjectName(candidate.resume_url);
+    if (oldObjectName) {
+      await supabase.storage.from('resumes').remove([oldObjectName]);
     }
   }
 
@@ -55,16 +78,12 @@ export async function uploadResume(formData: FormData): Promise<ActionResult> {
     return { error: 'Failed to upload resume. Please try again.' };
   }
 
-  // Get public URL
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from('resumes').getPublicUrl(filePath);
-
   // Update candidate record
   const { error: updateError } = await supabase
     .from('candidates')
     .update({
-      resume_url: publicUrl,
+      // Store the object name so the bucket can remain private.
+      resume_url: filePath,
       resume_filename: file.name,
       resume_uploaded_at: new Date().toISOString(),
     })
@@ -98,9 +117,9 @@ export async function deleteResume(candidateId: string): Promise<ActionResult> {
   }
 
   // Delete from storage
-  const pathParts = candidate.resume_url.split('/resumes/');
-  if (pathParts[1]) {
-    await supabase.storage.from('resumes').remove([pathParts[1]]);
+  const objectName = extractResumeObjectName(candidate.resume_url);
+  if (objectName) {
+    await supabase.storage.from('resumes').remove([objectName]);
   }
 
   // Update candidate record

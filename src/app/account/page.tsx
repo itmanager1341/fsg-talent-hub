@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { requireAuth, getUserRole } from '@/lib/auth/requireAuth';
+import { requireAuth, getUserRole, isAdmin } from '@/lib/auth/requireAuth';
 import { SignOutButton } from './SignOutButton';
 
 export const metadata = {
@@ -13,8 +13,12 @@ export default async function AccountPage({
   searchParams: Promise<{ setup?: string }>;
 }) {
   const user = await requireAuth();
-  const role = await getUserRole(user.id);
+  const [role, admin] = await Promise.all([getUserRole(user.id), isAdmin(user.id)]);
   const params = await searchParams;
+
+  if (admin && !params.setup) {
+    redirect('/admin');
+  }
 
   // If user has a role and no setup param, redirect to appropriate dashboard
   if (role && !params.setup) {

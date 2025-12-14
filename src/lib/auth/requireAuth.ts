@@ -115,6 +115,70 @@ export async function getUserRole(
 }
 
 /**
+ * Returns true if the user is an admin.
+ *
+ * Admin role is modeled via `public.user_roles` (role='admin').
+ */
+export async function isAdmin(userId: string): Promise<boolean> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', userId)
+    .eq('role', 'admin')
+    .maybeSingle();
+
+  if (error) {
+    // If RLS prevents this read, default to non-admin.
+    return false;
+  }
+
+  return !!data;
+}
+
+/**
+ * Require user to be either an employer (company_users row) or an admin.
+ * Redirects to /account (role setup) if the user is neither.
+ */
+export async function requireEmployerOrAdmin(): Promise<
+  | { user: User; access: 'admin' }
+  | { user: User; access: 'employer'; companyUserId: string; companyId: string }
+> {
+  const user = await requireAuth();
+  const supabase = await createClient();
+
+  const { data: adminRow, error: adminError } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', user.id)
+    .eq('role', 'admin')
+    .maybeSingle();
+
+  if (!adminError && adminRow) {
+    return { user, access: 'admin' };
+  }
+
+  const { data: companyUser } = await supabase
+    .from('company_users')
+    .select('id, company_id')
+    .eq('user_id', user.id)
+    .eq('is_active', true)
+    .single();
+
+  if (!companyUser) {
+    redirect('/account');
+  }
+
+  return {
+    user,
+    access: 'employer',
+    companyUserId: companyUser.id,
+    companyId: companyUser.company_id,
+  };
+}
+
+/**
  * Require admin role.
  *
  * V0 note: Admin role is implemented via a `public.user_roles` table with

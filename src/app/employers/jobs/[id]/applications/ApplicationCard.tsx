@@ -8,14 +8,18 @@ import { updateApplicationStatus } from './actions';
 
 interface Candidate {
   id: string;
-  first_name: string | null;
-  last_name: string | null;
-  email: string;
-  phone: string | null;
-  headline: string | null;
-  city: string | null;
-  state: string | null;
-  resume_url: string | null;
+  /**
+   * Candidate fields may be missing if the joined record is partially visible
+   * (e.g. due to RLS returning only `id`). The UI should degrade gracefully.
+   */
+  first_name?: string | null;
+  last_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  headline?: string | null;
+  city?: string | null;
+  state?: string | null;
+  resume_url?: string | null;
 }
 
 interface Application {
@@ -65,11 +69,13 @@ function formatDate(dateString: string): string {
   });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function ApplicationCard({ application, jobId }: ApplicationCardProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [expanded, setExpanded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isOpeningResume, setIsOpeningResume] = useState(false);
 
   const { candidate } = application;
   const config = statusConfig[application.status] || statusConfig.applied;
@@ -96,6 +102,25 @@ export function ApplicationCard({ application, jobId }: ApplicationCardProps) {
     candidate?.first_name || candidate?.last_name
       ? `${candidate?.first_name || ''} ${candidate?.last_name || ''}`.trim()
       : 'Candidate';
+
+  const openCandidateResume = async () => {
+    if (!candidate?.id) return;
+    try {
+      setIsOpeningResume(true);
+      const res = await fetch(`/api/resumes/${candidate.id}`);
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error || 'Failed to open resume');
+      }
+      const body = (await res.json()) as { url?: string };
+      if (!body.url) throw new Error('No resume URL returned');
+      window.open(body.url, '_blank', 'noopener,noreferrer');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to open resume');
+    } finally {
+      setIsOpeningResume(false);
+    }
+  };
 
   return (
     <Card>
@@ -140,16 +165,28 @@ export function ApplicationCard({ application, jobId }: ApplicationCardProps) {
           </div>
 
           <div className="flex items-center gap-2">
-            {resumeUrl && (
-              <a
-                href={resumeUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            {candidate?.resume_url && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={openCandidateResume}
+                disabled={isOpeningResume}
               >
-                View Resume
-              </a>
+                {isOpeningResume ? 'Opening...' : 'View Resume'}
+              </Button>
             )}
+            {!candidate?.resume_url &&
+              resumeUrl &&
+              (resumeUrl.startsWith('http://') || resumeUrl.startsWith('https://')) && (
+                <a
+                  href={resumeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  View Resume
+                </a>
+              )}
             <Button
               size="sm"
               variant="outline"
