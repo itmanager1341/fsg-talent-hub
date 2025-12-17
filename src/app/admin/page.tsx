@@ -82,6 +82,22 @@ export default function AdminHomePage() {
           </Card>
         </Link>
 
+        <Link href="/admin/job-sources">
+          <Card className="h-full transition hover:border-cyan-300 hover:shadow-md">
+            <CardContent className="pt-6">
+              <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-50">
+                <svg className="h-5 w-5 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                </svg>
+              </div>
+              <h2 className="text-lg font-semibold text-gray-900">Job Sources</h2>
+              <p className="mt-1 text-sm text-gray-600">
+                Manage external job sources and imports.
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
         <Link href="/admin/settings">
           <Card className="h-full transition hover:border-gray-400 hover:shadow-md">
             <CardContent className="pt-6">
