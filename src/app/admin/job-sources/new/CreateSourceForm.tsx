@@ -3,82 +3,90 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { useRouter } from 'next/navigation';
-import { updateSourceAction } from '../actions';
-import type { JobSource } from '@/lib/services/job-sources';
+import { createSourceAction } from '../actions';
 
-interface SourceConfigFormProps {
-  source: JobSource;
-}
-
-export function SourceConfigForm({ source }: SourceConfigFormProps) {
+export function CreateSourceForm() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   
-  const configData = source.config as Record<string, any>;
-  const [config, setConfig] = useState({
-    name: source.name,
-    is_active: source.is_active,
-    search_query: configData?.search_query || 'mortgage servicing OR M&A advisory',
-    search_location: configData?.search_location || '',
-    // API credentials - show based on source type
-    publisher_id: configData?.publisher_id || '', // Indeed
-    app_id: configData?.app_id || '', // Adzuna
-    app_key: configData?.app_key || '', // Adzuna
-    api_key: configData?.api_key || '', // Jooble
-    sync_frequency: source.sync_frequency,
-    rate_limit_per_hour: source.rate_limit_per_hour || 10,
+  const [formData, setFormData] = useState({
+    name: '',
+    source_type: 'rss' as 'api' | 'rss' | 'scraper' | 'partner',
+    search_query: 'mortgage servicing OR M&A advisory',
+    search_location: '',
+    // API credentials
+    publisher_id: '', // Indeed
+    app_id: '', // Adzuna
+    app_key: '', // Adzuna
+    api_key: '', // Jooble
+    sync_frequency: 'hourly' as 'hourly' | 'daily' | 'realtime',
+    rate_limit_per_hour: 10,
+    is_active: true,
   });
-
-  const isIndeed = source.name.toLowerCase().includes('indeed');
-  const isAdzuna = source.name.toLowerCase().includes('adzuna');
-  const isJooble = source.name.toLowerCase().includes('jooble');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
-    setSuccess(false);
 
     try {
       // Build config object based on source type
-      const configObj: Record<string, any> = {
-        search_query: config.search_query,
-        search_location: config.search_location,
+      const config: Record<string, any> = {
+        search_query: formData.search_query,
+        search_location: formData.search_location,
       };
 
-      if (isIndeed && config.publisher_id) {
-        configObj.publisher_id = config.publisher_id;
+      // Add API credentials based on source name
+      const nameLower = formData.name.toLowerCase();
+      if (nameLower.includes('indeed') && formData.publisher_id) {
+        config.publisher_id = formData.publisher_id;
       }
-      if (isAdzuna) {
-        configObj.app_id = config.app_id;
-        configObj.app_key = config.app_key;
+      if (nameLower.includes('adzuna')) {
+        if (!formData.app_id || !formData.app_key) {
+          throw new Error('Adzuna requires both App ID and App Key');
+        }
+        config.app_id = formData.app_id;
+        config.app_key = formData.app_key;
       }
-      if (isJooble) {
-        configObj.api_key = config.api_key;
+      if (nameLower.includes('jooble')) {
+        if (!formData.api_key) {
+          throw new Error('Jooble requires an API Key');
+        }
+        config.api_key = formData.api_key;
       }
 
-      await updateSourceAction(source.id, {
-        name: config.name,
-        is_active: config.is_active,
-        config: configObj,
-        sync_frequency: config.sync_frequency,
-        rate_limit_per_hour: config.rate_limit_per_hour,
+      // Add RSS feed URL if source type is RSS
+      if (formData.source_type === 'rss') {
+        const feedUrl = (formData as any).feed_url;
+        if (!feedUrl) {
+          throw new Error('RSS feed requires a feed URL');
+        }
+        config.feed_url = feedUrl;
+      }
+
+      await createSourceAction({
+        name: formData.name,
+        source_type: formData.source_type,
+        is_active: formData.is_active,
+        config,
+        sync_frequency: formData.sync_frequency,
+        rate_limit_per_hour: formData.rate_limit_per_hour,
       });
 
-      setSuccess(true);
-      setTimeout(() => {
-        router.refresh();
-        router.push('/admin/job-sources');
-      }, 1000);
+      router.push('/admin/job-sources');
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update source';
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create source';
       setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
+
+  const nameLower = formData.name.toLowerCase();
+  const isIndeed = nameLower.includes('indeed');
+  const isAdzuna = nameLower.includes('adzuna');
+  const isJooble = nameLower.includes('jooble');
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -88,24 +96,42 @@ export function SourceConfigForm({ source }: SourceConfigFormProps) {
         </div>
       )}
 
-      {success && (
-        <div className="rounded-md bg-green-50 p-4">
-          <p className="text-sm text-green-800">Source updated successfully!</p>
-        </div>
-      )}
-
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-          Source Name
+          Source Name *
         </label>
         <input
           type="text"
           id="name"
-          value={config.name}
-          onChange={(e) => setConfig({ ...config, name: e.target.value })}
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          placeholder="e.g., Indeed RSS, Adzuna API, Jooble API"
           required
         />
+        <p className="mt-1 text-xs text-gray-500">
+          Include the source name (Indeed, Adzuna, Jooble) to auto-detect API fields
+        </p>
+      </div>
+
+      <div>
+        <label htmlFor="source_type" className="block text-sm font-medium text-gray-700">
+          Source Type *
+        </label>
+        <select
+          id="source_type"
+          value={formData.source_type}
+          onChange={(e) =>
+            setFormData({ ...formData, source_type: e.target.value as 'api' | 'rss' | 'scraper' | 'partner' })
+          }
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          required
+        >
+          <option value="rss">RSS Feed</option>
+          <option value="api">API</option>
+          <option value="scraper">Web Scraper</option>
+          <option value="partner">Partner Integration</option>
+        </select>
       </div>
 
       <div>
@@ -115,8 +141,8 @@ export function SourceConfigForm({ source }: SourceConfigFormProps) {
         <input
           type="text"
           id="search_query"
-          value={config.search_query}
-          onChange={(e) => setConfig({ ...config, search_query: e.target.value })}
+          value={formData.search_query}
+          onChange={(e) => setFormData({ ...formData, search_query: e.target.value })}
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           placeholder="mortgage servicing OR M&A advisory"
         />
@@ -132,24 +158,24 @@ export function SourceConfigForm({ source }: SourceConfigFormProps) {
         <input
           type="text"
           id="search_location"
-          value={config.search_location}
-          onChange={(e) => setConfig({ ...config, search_location: e.target.value })}
+          value={formData.search_location}
+          onChange={(e) => setFormData({ ...formData, search_location: e.target.value })}
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           placeholder="City, State or ZIP"
         />
       </div>
 
-      {/* API Credentials - Show based on source type */}
+      {/* API Credentials - Show based on detected source */}
       {isIndeed && (
         <div>
           <label htmlFor="publisher_id" className="block text-sm font-medium text-gray-700">
-            Publisher ID (Optional)
+            Indeed Publisher ID (Optional)
           </label>
           <input
             type="text"
             id="publisher_id"
-            value={config.publisher_id}
-            onChange={(e) => setConfig({ ...config, publisher_id: e.target.value })}
+            value={formData.publisher_id}
+            onChange={(e) => setFormData({ ...formData, publisher_id: e.target.value })}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             placeholder="Indeed Publisher ID for API access"
           />
@@ -163,15 +189,16 @@ export function SourceConfigForm({ source }: SourceConfigFormProps) {
         <>
           <div>
             <label htmlFor="app_id" className="block text-sm font-medium text-gray-700">
-              Adzuna App ID
+              Adzuna App ID *
             </label>
             <input
               type="text"
               id="app_id"
-              value={config.app_id}
-              onChange={(e) => setConfig({ ...config, app_id: e.target.value })}
+              value={formData.app_id}
+              onChange={(e) => setFormData({ ...formData, app_id: e.target.value })}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               placeholder="Your Adzuna App ID"
+              required={isAdzuna}
             />
             <p className="mt-1 text-xs text-gray-500">
               Get your API credentials from{' '}
@@ -187,15 +214,16 @@ export function SourceConfigForm({ source }: SourceConfigFormProps) {
           </div>
           <div>
             <label htmlFor="app_key" className="block text-sm font-medium text-gray-700">
-              Adzuna App Key
+              Adzuna App Key *
             </label>
             <input
               type="password"
               id="app_key"
-              value={config.app_key}
-              onChange={(e) => setConfig({ ...config, app_key: e.target.value })}
+              value={formData.app_key}
+              onChange={(e) => setFormData({ ...formData, app_key: e.target.value })}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               placeholder="Your Adzuna App Key"
+              required={isAdzuna}
             />
           </div>
         </>
@@ -204,15 +232,16 @@ export function SourceConfigForm({ source }: SourceConfigFormProps) {
       {isJooble && (
         <div>
           <label htmlFor="api_key" className="block text-sm font-medium text-gray-700">
-            Jooble API Key
+            Jooble API Key *
           </label>
           <input
             type="password"
             id="api_key"
-            value={config.api_key}
-            onChange={(e) => setConfig({ ...config, api_key: e.target.value })}
+            value={formData.api_key}
+            onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             placeholder="Your Jooble API Key"
+            required={isJooble}
           />
           <p className="mt-1 text-xs text-gray-500">
             Get your API key from{' '}
@@ -228,6 +257,32 @@ export function SourceConfigForm({ source }: SourceConfigFormProps) {
         </div>
       )}
 
+      {formData.source_type === 'rss' && (
+        <div>
+          <label htmlFor="feed_url" className="block text-sm font-medium text-gray-700">
+            RSS Feed URL *
+          </label>
+          <input
+            type="url"
+            id="feed_url"
+            value={(formData as any).feed_url || ''}
+            onChange={(e) => {
+              const config = (formData.config as any) || {};
+              setFormData({
+                ...formData,
+                config: { ...config, feed_url: e.target.value },
+              } as any);
+            }}
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            placeholder="https://example.com/careers/rss"
+            required={formData.source_type === 'rss'}
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Enter the RSS feed URL. Common patterns: /careers/rss, /jobs/feed, /employment/rss
+          </p>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label htmlFor="sync_frequency" className="block text-sm font-medium text-gray-700">
@@ -235,9 +290,9 @@ export function SourceConfigForm({ source }: SourceConfigFormProps) {
           </label>
           <select
             id="sync_frequency"
-            value={config.sync_frequency}
+            value={formData.sync_frequency}
             onChange={(e) =>
-              setConfig({ ...config, sync_frequency: e.target.value as 'hourly' | 'daily' | 'realtime' })
+              setFormData({ ...formData, sync_frequency: e.target.value as 'hourly' | 'daily' | 'realtime' })
             }
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
@@ -254,9 +309,9 @@ export function SourceConfigForm({ source }: SourceConfigFormProps) {
           <input
             type="number"
             id="rate_limit"
-            value={config.rate_limit_per_hour}
+            value={formData.rate_limit_per_hour}
             onChange={(e) =>
-              setConfig({ ...config, rate_limit_per_hour: parseInt(e.target.value, 10) || 10 })
+              setFormData({ ...formData, rate_limit_per_hour: parseInt(e.target.value, 10) || 10 })
             }
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             min="1"
@@ -268,8 +323,8 @@ export function SourceConfigForm({ source }: SourceConfigFormProps) {
         <input
           type="checkbox"
           id="is_active"
-          checked={config.is_active}
-          onChange={(e) => setConfig({ ...config, is_active: e.target.checked })}
+          checked={formData.is_active}
+          onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
           className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
         />
         <label htmlFor="is_active" className="ml-2 text-sm text-gray-700">
@@ -279,7 +334,7 @@ export function SourceConfigForm({ source }: SourceConfigFormProps) {
 
       <div className="flex items-center gap-3 border-t border-gray-200 pt-6">
         <Button type="submit" disabled={isLoading}>
-          {isLoading ? 'Saving...' : 'Save Changes'}
+          {isLoading ? 'Creating...' : 'Create Source'}
         </Button>
         <Button
           type="button"
@@ -293,3 +348,4 @@ export function SourceConfigForm({ source }: SourceConfigFormProps) {
     </form>
   );
 }
+

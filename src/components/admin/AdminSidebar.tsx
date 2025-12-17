@@ -52,6 +52,12 @@ const DatabaseIcon = () => (
   </svg>
 );
 
+const TargetIcon = () => (
+  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
 const navItems: NavItem[] = [
   { href: '/admin', label: 'Dashboard', icon: <HomeIcon /> },
   { href: '/admin/companies', label: 'Companies', icon: <BuildingIcon /> },
@@ -59,6 +65,7 @@ const navItems: NavItem[] = [
   { href: '/admin/ai-usage', label: 'AI Usage', icon: <SparklesIcon /> },
   { href: '/admin/hubspot', label: 'HubSpot Sync', icon: <SyncIcon /> },
   { href: '/admin/job-sources', label: 'Job Sources', icon: <DatabaseIcon /> },
+  { href: '/admin/employer-prospects', label: 'Employer Prospects', icon: <TargetIcon /> },
   { href: '/admin/settings', label: 'Settings', icon: <CogIcon /> },
 ];
 

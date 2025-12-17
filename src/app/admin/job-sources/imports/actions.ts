@@ -8,6 +8,7 @@ import {
 } from '@/lib/services/job-import';
 import type { ExternalJob } from '@/lib/services/job-ingestion';
 import { createClient } from '@/lib/supabase/server';
+import { processEmployerProspects } from '@/lib/services/employer-prospecting';
 
 export interface ImportQueueItem {
   id: string;
@@ -118,6 +119,16 @@ export async function approveImportAction(externalJobId: string) {
         imported_job_id: jobId,
         processed_at: new Date().toISOString(),
       });
+    }
+
+    // Process employer prospects for unmatched companies
+    if (!externalJob.matched_company_id && externalJob.company_name) {
+      try {
+        await processEmployerProspects([externalJobId]);
+      } catch (error) {
+        console.error('Error processing employer prospects:', error);
+        // Don't fail the import if prospecting fails
+      }
     }
 
     return { success: true, jobId };

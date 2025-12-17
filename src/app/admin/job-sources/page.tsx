@@ -58,11 +58,21 @@ export default async function JobSourcesPage() {
   return (
     <div className="p-6 lg:p-8">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Job Sources</h1>
-        <p className="mt-1 text-gray-600">
-          Manage external job sources and sync jobs from Indeed, Adzuna, and other providers.
-        </p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Job Sources</h1>
+          <p className="mt-1 text-gray-600">
+            Manage external job sources and sync jobs from Indeed, Adzuna, and other providers.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link href="/admin/job-sources/quality">
+            <Button variant="outline">Quality Metrics</Button>
+          </Link>
+          <Link href="/admin/job-sources/feeds">
+            <Button variant="outline">Feed Health</Button>
+          </Link>
+        </div>
       </div>
 
       {/* Stats Section */}
@@ -95,10 +105,18 @@ export default async function JobSourcesPage() {
           <CardContent className="pt-6">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-semibold text-gray-900">Configured Sources</h2>
+              <Link href="/admin/job-sources/new">
+                <Button size="sm">Add Source</Button>
+              </Link>
             </div>
 
             {sources.length === 0 ? (
-              <p className="text-sm text-gray-500">No job sources configured yet.</p>
+              <div className="py-8 text-center">
+                <p className="text-sm text-gray-500 mb-4">No job sources configured yet.</p>
+                <Link href="/admin/job-sources/new">
+                  <Button size="sm">Add Your First Source</Button>
+                </Link>
+              </div>
             ) : (
               <div className="space-y-3">
                 {sources.map((source) => (

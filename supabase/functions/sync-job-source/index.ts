@@ -189,9 +189,10 @@ serve(async (req) => {
     };
 
     try {
+      const config = source.config as Record<string, any>;
+      
       if (source.name.includes('indeed')) {
         // Fetch from Indeed RSS (free, no API key required)
-        const config = source.config as Record<string, any>;
         const query = config.search_query || 'mortgage servicing OR M&A advisory';
         const location = config.search_location || '';
         
@@ -209,6 +210,96 @@ serve(async (req) => {
           jobs = indeedJobs.map((job) => normalizeIndeedJob(job, sourceId));
         } else {
           result.errors.push(`Indeed RSS fetch failed: ${rssResponse.status}`);
+        }
+      } else if (source.name.includes('adzuna')) {
+        // Fetch from Adzuna API
+        const appId = config.app_id;
+        const appKey = config.app_key;
+        const query = config.search_query || 'mortgage servicing OR financial services';
+        const location = config.search_location || '';
+        
+        if (!appId || !appKey) {
+          result.errors.push('Adzuna API requires app_id and app_key in config');
+        } else {
+          const adzunaUrl = `https://api.adzuna.com/v1/api/jobs/us/search/1?app_id=${appId}&app_key=${appKey}&what=${encodeURIComponent(query)}&where=${encodeURIComponent(location)}&results_per_page=50&sort_by=date&max_days_old=7`;
+          
+          const adzunaResponse = await fetch(adzunaUrl);
+          
+          if (adzunaResponse.ok) {
+            const adzunaData = await adzunaResponse.json();
+            if (adzunaData.results) {
+              jobs = adzunaData.results.map((job: any) => ({
+                external_id: job.id || job.adref || crypto.randomUUID(),
+                source_url: job.redirect_url,
+                title: job.title,
+                description: job.description,
+                company_name: job.company?.display_name,
+                location_city: job.location?.area?.[0] || job.location?.display_name?.split(',')[0],
+                location_state: job.location?.display_name?.split(',')[1]?.trim(),
+                location_country: 'USA',
+                salary_min: job.salary_min || null,
+                salary_max: job.salary_max || null,
+                job_type: job.contract_type?.toLowerCase().includes('full') ? 'full_time' : null,
+                work_setting: job.location?.display_name?.toLowerCase().includes('remote') ? 'remote' : 'onsite',
+                raw_data: { ...job, normalized_at: new Date().toISOString() },
+                expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+              }));
+            }
+          } else {
+            result.errors.push(`Adzuna API fetch failed: ${adzunaResponse.status}`);
+          }
+        }
+      } else if (source.name.includes('jooble')) {
+        // Fetch from Jooble API
+        const apiKey = config.api_key;
+        const query = config.search_query || 'mortgage servicing OR financial services';
+        const location = config.search_location || '';
+        
+        if (!apiKey) {
+          result.errors.push('Jooble API requires api_key in config');
+        } else {
+          const dateFrom = new Date();
+          dateFrom.setDate(dateFrom.getDate() - 7);
+          
+          const joobleResponse = await fetch(`https://jooble.org/api/${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              keywords: query,
+              location: location,
+              radius: 25,
+              page: 1,
+              searchMode: 1,
+              datefrom: dateFrom.toISOString().split('T')[0],
+            }),
+          });
+          
+          if (joobleResponse.ok) {
+            const joobleData = await joobleResponse.json();
+            if (joobleData.jobs) {
+              jobs = joobleData.jobs.map((job: any) => {
+                const locationParts = job.location?.split(',').map((s: string) => s.trim()) || [];
+                return {
+                  external_id: job.id,
+                  source_url: job.link,
+                  title: job.title,
+                  description: job.snippet,
+                  company_name: job.source,
+                  location_city: locationParts[0],
+                  location_state: locationParts[1],
+                  location_country: locationParts[2] || 'USA',
+                  salary_min: null, // Parse from job.salary if needed
+                  salary_max: null,
+                  job_type: job.type?.toLowerCase().includes('full') ? 'full_time' : null,
+                  work_setting: job.location?.toLowerCase().includes('remote') ? 'remote' : 'onsite',
+                  raw_data: { ...job, normalized_at: new Date().toISOString() },
+                  expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                };
+              });
+            }
+          } else {
+            result.errors.push(`Jooble API fetch failed: ${joobleResponse.status}`);
+          }
         }
       }
 

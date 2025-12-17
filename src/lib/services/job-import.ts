@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import type { ExternalJob } from './job-ingestion';
+import { processEmployerProspects } from './employer-prospecting';
 
 export interface JobImport {
   id: string;
