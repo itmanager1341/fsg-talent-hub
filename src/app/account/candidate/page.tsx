@@ -1,9 +1,12 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { requireCandidate } from '@/lib/auth/requireAuth';
 import { createClient } from '@/lib/supabase/server';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { SignOutButton } from '../SignOutButton';
+import { JobRecommendations } from './JobRecommendations';
+import { JobInvitationsSection } from './JobInvitationsSection';
 
 export const metadata = {
   title: 'Dashboard | FSG Talent Hub',
@@ -137,8 +140,15 @@ export default async function CandidateDashboardPage() {
           </Card>
         )}
 
+        {/* Job Invitations */}
+        <div className="mb-8">
+          <Suspense fallback={null}>
+            <JobInvitationsSection candidateId={candidate.id} />
+          </Suspense>
+        </div>
+
         {/* Quick Actions */}
-        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Link href="/jobs">
             <Card className="h-full transition hover:border-blue-300 hover:shadow-md">
               <CardContent className="pt-6">
@@ -159,6 +169,16 @@ export default async function CandidateDashboardPage() {
               </CardContent>
             </Card>
           </Link>
+          <Link href="/account/candidate/resume">
+            <Card className="h-full transition hover:border-green-300 hover:shadow-md">
+              <CardContent className="pt-6">
+                <h3 className="font-medium text-gray-900">Resume Builder</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  AI-powered optimization
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
           <Link href="/account/candidate/applications">
             <Card className="h-full transition hover:border-blue-300 hover:shadow-md">
               <CardContent className="pt-6">
@@ -175,6 +195,16 @@ export default async function CandidateDashboardPage() {
                 <h3 className="font-medium text-gray-900">Saved Jobs</h3>
                 <p className="mt-1 text-sm text-gray-500">
                   View bookmarked jobs
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/account/candidate/billing">
+            <Card className="h-full transition hover:border-purple-300 hover:shadow-md">
+              <CardContent className="pt-6">
+                <h3 className="font-medium text-gray-900">Upgrade</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Premium features
                 </p>
               </CardContent>
             </Card>
@@ -336,6 +366,13 @@ export default async function CandidateDashboardPage() {
               )}
             </CardContent>
           </Card>
+        </div>
+
+        {/* Job Recommendations */}
+        <div className="mt-8">
+          <Suspense fallback={null}>
+            <JobRecommendations candidateId={candidate.id} />
+          </Suspense>
         </div>
 
         {/* Profile Summary */}

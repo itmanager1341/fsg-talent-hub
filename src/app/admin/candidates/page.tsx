@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { requireAdmin } from '@/lib/auth/requireAuth';
 import { createClient } from '@/lib/supabase/server';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -56,47 +55,40 @@ export default async function AdminCandidatesPage({
 }: {
   searchParams: Promise<CandidatesSearchParams>;
 }) {
-  await requireAdmin();
   const params = await searchParams;
   const candidates = await getCandidates(params);
 
   return (
-    <div className="bg-gray-50">
-      <div className="border-b border-gray-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <Link
-            href="/admin"
-            className="text-sm font-medium text-blue-600 hover:text-blue-500"
-          >
-            &larr; Admin
-          </Link>
-          <h1 className="mt-2 text-3xl font-bold text-gray-900">Candidates</h1>
-          <p className="mt-1 text-gray-600">
-            Activate/deactivate candidates and control resume search visibility.
-          </p>
-
-          <div className="mt-6 flex flex-wrap gap-2">
-            <Link href="/admin/candidates">
-              <Button variant="outline" size="sm">
-                All
-              </Button>
-            </Link>
-            <Link href="/admin/candidates?status=inactive">
-              <Button variant="outline" size="sm">
-                Inactive
-              </Button>
-            </Link>
-            <Link href="/admin/candidates?searchable=hidden">
-              <Button variant="outline" size="sm">
-                Hidden from search
-              </Button>
-            </Link>
-          </div>
-        </div>
+    <div className="p-6 lg:p-8">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Candidates</h1>
+        <p className="mt-1 text-gray-600">
+          Activate/deactivate candidates and control resume search visibility.
+        </p>
       </div>
 
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <Card>
+      {/* Filters */}
+      <div className="mb-6 flex flex-wrap gap-2">
+        <Link href="/admin/candidates">
+          <Button variant="outline" size="sm">
+            All
+          </Button>
+        </Link>
+        <Link href="/admin/candidates?status=inactive">
+          <Button variant="outline" size="sm">
+            Inactive
+          </Button>
+        </Link>
+        <Link href="/admin/candidates?searchable=hidden">
+          <Button variant="outline" size="sm">
+            Hidden from search
+          </Button>
+        </Link>
+      </div>
+
+      {/* Content */}
+      <Card>
           <CardContent className="pt-6">
             <div className="mb-4 flex items-center justify-between">
               <p className="text-sm text-gray-600">
@@ -197,7 +189,6 @@ export default async function AdminCandidatesPage({
             </div>
           </CardContent>
         </Card>
-      </div>
     </div>
   );
 }

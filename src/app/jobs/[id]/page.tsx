@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
@@ -5,6 +6,7 @@ import { getUser } from '@/lib/auth/requireAuth';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { SaveJobButton } from '@/components/jobs/SaveJobButton';
+import { SimilarJobs } from './SimilarJobs';
 
 interface JobDetails {
   id: string;
@@ -327,6 +329,11 @@ export default async function JobDetailPage({
             </div>
           </div>
         </div>
+
+        {/* Similar Jobs */}
+        <Suspense fallback={null}>
+          <SimilarJobs jobId={id} />
+        </Suspense>
       </div>
     </div>
   );

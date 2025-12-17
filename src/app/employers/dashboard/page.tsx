@@ -170,6 +170,27 @@ export default async function EmployerDashboardPage() {
           </Card>
         </div>
 
+        {/* Resume Database CTA */}
+        <Card className="mb-8 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+          <CardContent className="flex items-center justify-between pt-6">
+            <div>
+              <h3 className="font-semibold text-gray-900">Resume Database</h3>
+              <p className="mt-1 text-sm text-gray-600">
+                Search qualified candidates and invite them to apply for your open positions.
+              </p>
+            </div>
+            {company.tier === 'free' ? (
+              <Link href="/employers/billing?upgrade=resume-database">
+                <Button variant="outline">Upgrade to Access</Button>
+              </Link>
+            ) : (
+              <Link href="/employers/candidates">
+                <Button>Search Candidates</Button>
+              </Link>
+            )}
+          </CardContent>
+        </Card>
+
         <div className="grid gap-8 lg:grid-cols-3">
           {/* Jobs List */}
           <div className="lg:col-span-2">
@@ -315,12 +336,21 @@ export default async function EmployerDashboardPage() {
                   >
                     Manage Team
                   </Link>
+                  <Link
+                    href="/employers/billing"
+                    className="block text-sm text-blue-600 hover:text-blue-500"
+                  >
+                    Billing & Subscription
+                  </Link>
                 </div>
                 <div className="mt-4 rounded-lg bg-gray-50 p-3">
                   <p className="text-xs text-gray-500">Current Plan</p>
-                  <p className="font-medium capitalize text-gray-900">
-                    {company.tier || 'Free'}
-                  </p>
+                  <Link
+                    href="/employers/billing"
+                    className="font-medium capitalize text-gray-900 hover:text-blue-600"
+                  >
+                    {company.tier || 'Free'} &rarr;
+                  </Link>
                 </div>
               </CardContent>
             </Card>

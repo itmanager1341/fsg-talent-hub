@@ -4,7 +4,9 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { updateApplicationStatus } from './actions';
+import { MatchScoreBadge } from '@/components/employer/MatchScoreBadge';
+import { MatchExplanation } from '@/components/employer/MatchExplanation';
+import { updateApplicationStatus, rankApplicant, type RankingResult } from './actions';
 
 interface Candidate {
   id: string;
@@ -28,6 +30,8 @@ interface Application {
   cover_letter: string | null;
   resume_url: string | null;
   applied_at: string;
+  ai_match_score: number | null;
+  ai_match_reasons: RankingResult | null;
   /**
    * Candidate can be null if employer lacks RLS permission to read `candidates`
    * (e.g. policies not yet configured). We still want the page to render and
@@ -39,6 +43,7 @@ interface Application {
 interface ApplicationCardProps {
   application: Application;
   jobId: string;
+  canUseAIRanking?: boolean;
 }
 
 const statusConfig: Record<string, { label: string; color: string }> = {
@@ -70,12 +75,16 @@ function formatDate(dateString: string): string {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function ApplicationCard({ application, jobId }: ApplicationCardProps) {
+export function ApplicationCard({ application, jobId, canUseAIRanking = false }: ApplicationCardProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [expanded, setExpanded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isOpeningResume, setIsOpeningResume] = useState(false);
+  const [isRanking, setIsRanking] = useState(false);
+  const [matchData, setMatchData] = useState<RankingResult | null>(
+    application.ai_match_reasons
+  );
 
   const { candidate } = application;
   const config = statusConfig[application.status] || statusConfig.applied;
@@ -90,6 +99,24 @@ export function ApplicationCard({ application, jobId }: ApplicationCardProps) {
         router.refresh();
       }
     });
+  };
+
+  const handleRank = async () => {
+    setError(null);
+    setIsRanking(true);
+    try {
+      const result = await rankApplicant(application.id);
+      if (result.error) {
+        setError(result.error);
+      } else if (result.result) {
+        setMatchData(result.result);
+        router.refresh();
+      }
+    } catch {
+      setError('Failed to rank applicant');
+    } finally {
+      setIsRanking(false);
+    }
   };
 
   const location =
@@ -136,6 +163,12 @@ export function ApplicationCard({ application, jobId }: ApplicationCardProps) {
               >
                 {config.label}
               </span>
+              {(application.ai_match_score !== null || matchData) && (
+                <MatchScoreBadge
+                  score={matchData?.score ?? application.ai_match_score}
+                  size="sm"
+                />
+              )}
             </div>
 
             {candidate?.headline && (
@@ -199,6 +232,16 @@ export function ApplicationCard({ application, jobId }: ApplicationCardProps) {
 
         {expanded && (
           <div className="mt-4 border-t border-gray-100 pt-4">
+            {/* AI Match Analysis */}
+            <div className="mb-4">
+              <MatchExplanation
+                matchData={matchData}
+                onRank={handleRank}
+                isRanking={isRanking}
+                canRank={canUseAIRanking}
+              />
+            </div>
+
             {/* Cover Letter */}
             {application.cover_letter && (
               <div className="mb-4">

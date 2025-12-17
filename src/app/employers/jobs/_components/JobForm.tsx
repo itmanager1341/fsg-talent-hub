@@ -1,12 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { createJob, updateJob } from '../actions';
+import { supabase } from '@/lib/supabaseClient';
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
 interface Job {
   id: string;
@@ -80,8 +83,78 @@ export function JobForm({ companyId, companyName, job }: JobFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSalary, setShowSalary] = useState(job?.show_salary ?? true);
+  const [isGeneratingJD, setIsGeneratingJD] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const isEditing = !!job;
+
+  async function handleGenerateJD() {
+    setIsGeneratingJD(true);
+    setAiError(null);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        setAiError('Please sign in to use AI generation');
+        return;
+      }
+
+      // Get form values
+      const formData = formRef.current ? new FormData(formRef.current) : null;
+      const jobTitle = formData?.get('title') as string;
+      const experienceLevel = formData?.get('experience_level') as string;
+      const workSetting = formData?.get('work_setting') as string;
+      const department = formData?.get('department') as string;
+
+      if (!jobTitle || jobTitle.length < 3) {
+        setAiError('Please enter a job title first');
+        return;
+      }
+
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-jd`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          job_title: jobTitle,
+          seniority: experienceLevel || undefined,
+          work_setting: workSetting || undefined,
+          industry: department || undefined,
+          company_description: companyName,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          setAiError(
+            `Daily AI limit reached (${data.used}/${data.limit}). Upgrade your plan for more.`
+          );
+        } else {
+          setAiError(data.error || 'Failed to generate description');
+        }
+        return;
+      }
+
+      // Update the textarea
+      if (descriptionRef.current && data.job_description) {
+        descriptionRef.current.value = data.job_description;
+      }
+    } catch (err) {
+      console.error('AI generation error:', err);
+      setAiError('Failed to connect to AI service');
+    } finally {
+      setIsGeneratingJD(false);
+    }
+  }
 
   async function handleSubmit(
     e: React.FormEvent<HTMLFormElement>,
@@ -110,6 +183,7 @@ export function JobForm({ companyId, companyName, job }: JobFormProps) {
 
   return (
     <form
+      ref={formRef}
       onSubmit={(e) => {
         e.preventDefault();
         // Default to draft, buttons will override
@@ -150,21 +224,40 @@ export function JobForm({ companyId, companyName, job }: JobFormProps) {
           />
 
           <div>
-            <label
-              htmlFor="description"
-              className="mb-1 block text-sm font-medium text-gray-700"
-            >
-              Job Description <span className="text-red-500">*</span>
-            </label>
+            <div className="mb-1 flex items-center justify-between">
+              <label
+                htmlFor="description"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Job Description <span className="text-red-500">*</span>
+              </label>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleGenerateJD}
+                disabled={isGeneratingJD}
+                className="text-blue-600 hover:text-blue-700"
+              >
+                {isGeneratingJD ? 'Generating...' : 'Generate with AI'}
+              </Button>
+            </div>
+            {aiError && (
+              <p className="mb-2 text-sm text-red-600">{aiError}</p>
+            )}
             <textarea
+              ref={descriptionRef}
               id="description"
               name="description"
-              rows={6}
+              rows={8}
               required
               defaultValue={job?.description || ''}
               placeholder="Describe the role, responsibilities, and what a typical day looks like..."
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
+            <p className="mt-1 text-xs text-gray-500">
+              Tip: Fill in the job title, experience level, and work setting above, then click &quot;Generate with AI&quot; for a professional description.
+            </p>
           </div>
         </CardContent>
       </Card>
