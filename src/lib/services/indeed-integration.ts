@@ -149,7 +149,8 @@ export async function syncIndeedJobs(
         if (companyMatch) {
           // Update external job with match
           // We need to get the external job ID first
-          const { data: externalJob } = await (await import('@/lib/supabase/server')).createClient()
+          const supabase = await (await import('@/lib/supabase/server')).createClient();
+          const { data: externalJob } = await supabase
             .from('external_jobs')
             .select('id')
             .eq('source_id', sourceId)

@@ -1,5 +1,8 @@
 # FSG Talent Hub – DEV PLAN (V1)
 
+> **⚠️ ARCHIVED**: V1 implementation is complete. This document is kept for historical reference.
+> See **DEV_PLAN_v2.md** for current development status and active features.
+
 **Version:** 1.5
 **Last Updated:** 2025-12-16
 **Status:** ✅ Complete

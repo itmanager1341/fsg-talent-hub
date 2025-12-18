@@ -57,24 +57,24 @@ export default async function SourceQualityPage() {
         <StatCard
           title="Average Quality Score"
           value={`${Math.round(avgQualityScore * 100)}%`}
-          description="Across all sources"
+          subtitle="Across all sources"
         />
         <StatCard
           title="Active Sources"
           value={metrics.length.toString()}
-          description="Currently active"
+          subtitle="Currently active"
         />
         <StatCard
           title="Total Jobs"
           value={metrics.reduce((sum, m) => sum + m.jobs_total, 0).toLocaleString()}
-          description="All sources combined"
+          subtitle="All sources combined"
         />
         <StatCard
           title="Avg Match Rate"
           value={`${Math.round(
             (metrics.reduce((sum, m) => sum + m.match_rate, 0) / metrics.length || 0) * 100
           )}%`}
-          description="Company matching success"
+          subtitle="Company matching success"
         />
       </div>
 

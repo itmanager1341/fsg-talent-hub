@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/server';
-import type { ExternalJob } from './job-ingestion';
 
 export interface EmployerProspect {
   id: string;
@@ -16,6 +15,14 @@ export interface EmployerProspect {
   outreach_date: string | null;
   conversion_date: string | null;
   notes: string | null;
+  created_company_id: string | null; // Links to auto-created company
+}
+
+// Minimal job info needed for employer identification
+interface JobCompanyInfo {
+  company_name: string | null;
+  company_url: string | null;
+  matched_company_id: string | null;
 }
 
 /**
@@ -23,7 +30,7 @@ export interface EmployerProspect {
  * Returns companies that don't exist in our database
  */
 export async function identifyNewEmployers(
-  externalJobs: ExternalJob[]
+  externalJobs: JobCompanyInfo[]
 ): Promise<Array<{ company_name: string; company_url: string | null; job_count: number }>> {
   const supabase = await createClient();
 
@@ -288,6 +295,7 @@ export async function processEmployerProspects(
         outreach_date: null,
         conversion_date: null,
         notes: null,
+        created_company_id: null, // Legacy flow - company created separately via job import
       });
 
       prospectsCreated++;
@@ -357,4 +365,192 @@ export async function getEmployerProspects(filters?: {
   }
 
   return (data || []) as EmployerProspect[];
+}
+
+// =============================================================================
+// BACKGROUND HUBSPOT SYNC FUNCTIONS
+// These functions are called by background jobs, not inline during import
+// =============================================================================
+
+export interface HubSpotSyncResult {
+  synced: number;
+  failed: number;
+  errors: string[];
+}
+
+/**
+ * Get companies pending HubSpot sync
+ */
+export async function getCompaniesPendingHubSpotSync(
+  limit = 50
+): Promise<Array<{ id: string; name: string; website: string | null }>> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('companies')
+    .select('id, name, website')
+    .eq('hubspot_sync_status', 'pending')
+    .eq('is_verified', false) // Only sync unverified (prospected) companies
+    .limit(limit);
+
+  if (error) {
+    throw new Error(`Failed to get pending companies: ${error.message}`);
+  }
+
+  return data || [];
+}
+
+/**
+ * Sync a single company to HubSpot
+ */
+export async function syncCompanyToHubSpot(
+  companyId: string
+): Promise<{ success: boolean; hubspotId?: string; error?: string }> {
+  const supabase = await createClient();
+
+  // Get company details
+  const { data: company, error: fetchError } = await supabase
+    .from('companies')
+    .select('id, name, website, industry, headquarters_city, headquarters_state')
+    .eq('id', companyId)
+    .single();
+
+  if (fetchError || !company) {
+    return { success: false, error: 'Company not found' };
+  }
+
+  try {
+    // Get session for edge function call
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      return { success: false, error: 'No auth session' };
+    }
+
+    // Call create-hubspot-lead edge function
+    const hubspotUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/create-hubspot-lead`;
+
+    const response = await fetch(hubspotUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        company_name: company.name,
+        company_url: company.website,
+        industry: company.industry,
+        city: company.headquarters_city,
+        state: company.headquarters_state,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({}));
+      throw new Error(errorBody.error || `HubSpot API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    const hubspotId = result.company_id;
+
+    // Update company with HubSpot ID
+    await supabase
+      .from('companies')
+      .update({
+        hubspot_id: hubspotId,
+        hubspot_sync_status: 'synced',
+        hubspot_sync_error: null,
+      })
+      .eq('id', companyId);
+
+    // Also update employer_prospects if exists
+    await supabase
+      .from('employer_prospects')
+      .update({
+        hubspot_company_id: hubspotId,
+      })
+      .eq('created_company_id', companyId);
+
+    return { success: true, hubspotId };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    // Update company with error status
+    await supabase
+      .from('companies')
+      .update({
+        hubspot_sync_status: 'error',
+        hubspot_sync_error: errorMessage,
+      })
+      .eq('id', companyId);
+
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * Batch sync all pending companies to HubSpot
+ * Called by admin action or scheduled job
+ */
+export async function batchSyncToHubSpot(limit = 50): Promise<HubSpotSyncResult> {
+  const pendingCompanies = await getCompaniesPendingHubSpotSync(limit);
+
+  const result: HubSpotSyncResult = {
+    synced: 0,
+    failed: 0,
+    errors: [],
+  };
+
+  for (const company of pendingCompanies) {
+    const syncResult = await syncCompanyToHubSpot(company.id);
+
+    if (syncResult.success) {
+      result.synced++;
+    } else {
+      result.failed++;
+      result.errors.push(`${company.name}: ${syncResult.error}`);
+    }
+
+    // Small delay to avoid rate limiting
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+
+  return result;
+}
+
+/**
+ * Get HubSpot sync status summary
+ */
+export async function getHubSpotSyncStatus(): Promise<{
+  pending: number;
+  synced: number;
+  error: number;
+}> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('companies')
+    .select('hubspot_sync_status')
+    .eq('is_verified', false); // Only count prospected companies
+
+  if (error) {
+    throw new Error(`Failed to get sync status: ${error.message}`);
+  }
+
+  const counts = {
+    pending: 0,
+    synced: 0,
+    error: 0,
+  };
+
+  for (const company of data || []) {
+    const status = company.hubspot_sync_status as string;
+    if (status === 'pending') counts.pending++;
+    else if (status === 'synced') counts.synced++;
+    else if (status === 'error') counts.error++;
+  }
+
+  return counts;
 }

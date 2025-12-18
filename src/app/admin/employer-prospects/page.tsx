@@ -1,7 +1,8 @@
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { getEmployerProspects } from '@/lib/services/employer-prospecting';
+import { getEmployerProspects, getHubSpotSyncStatus } from '@/lib/services/employer-prospecting';
 import Link from 'next/link';
+import { HubSpotSyncButton } from './HubSpotSyncButton';
 
 export const metadata = {
   title: 'Employer Prospects | Admin | FSG Talent Hub',
@@ -63,10 +64,13 @@ export default async function EmployerProspectsPage({
   searchParams: Promise<{ status?: string; enrichment?: string }>;
 }) {
   const params = await searchParams;
-  const prospects = await getEmployerProspects({
-    outreach_status: params.status as any,
-    enrichment_status: params.enrichment as any,
-  });
+  const [prospects, syncStatus] = await Promise.all([
+    getEmployerProspects({
+      outreach_status: params.status as any,
+      enrichment_status: params.enrichment as any,
+    }),
+    getHubSpotSyncStatus(),
+  ]);
 
   return (
     <div className="p-6 lg:p-8">
@@ -76,6 +80,15 @@ export default async function EmployerProspectsPage({
         <p className="mt-1 text-gray-600">
           Companies identified from external job listings that could become employers.
         </p>
+      </div>
+
+      {/* HubSpot Sync Status */}
+      <div className="mb-6">
+        <HubSpotSyncButton
+          pendingCount={syncStatus.pending}
+          syncedCount={syncStatus.synced}
+          errorCount={syncStatus.error}
+        />
       </div>
 
       {/* Filters */}

@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
 import type { ExternalJob } from './job-ingestion';
-import { processEmployerProspects } from './employer-prospecting';
 
 export interface JobImport {
   id: string;
@@ -43,53 +42,106 @@ export async function createJobImport(
 }
 
 /**
- * Get or create the placeholder company for external jobs without matched companies
+ * Generate a unique slug for a company name
  */
-async function getPlaceholderCompanyId(supabase: any): Promise<string> {
-  // Try to get existing placeholder company
+function generateCompanySlug(companyName: string): string {
+  const baseSlug = companyName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .substring(0, 50); // Limit length
+
+  // Add timestamp suffix for uniqueness
+  return `${baseSlug}-${Date.now().toString(36)}`;
+}
+
+/**
+ * Get existing company or create a new unverified company for external job import
+ * This creates REAL company records (not placeholders) with is_verified = false
+ */
+async function getOrCreateCompanyForExternalJob(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  companyName: string | null,
+  companyUrl: string | null
+): Promise<{ companyId: string; isNew: boolean }> {
+  if (!companyName) {
+    throw new Error('Company name is required to create company record');
+  }
+
+  const normalizedName = companyName.trim();
+
+  // 1. Check if company already exists (by exact name match)
   const { data: existing } = await supabase
     .from('companies')
     .select('id')
-    .eq('slug', 'external-job-source')
+    .ilike('name', normalizedName)
+    .limit(1)
     .single();
 
   if (existing) {
-    return existing.id;
+    return { companyId: existing.id, isNew: false };
   }
 
-  // If it doesn't exist, create it (shouldn't happen, but handle it)
+  // 2. Create new UNVERIFIED company
+  const slug = generateCompanySlug(normalizedName);
+
   const { data: created, error } = await supabase
     .from('companies')
     .insert({
-      name: 'External Job Source',
-      slug: 'external-job-source',
-      website: 'https://fsgtalenthub.com',
-      description: 'Placeholder company for jobs imported from external sources that have not been matched to an existing company.',
+      name: normalizedName,
+      slug,
+      website: companyUrl,
+      is_verified: false,  // KEY: Unverified until employer signs up
       is_active: true,
+      tier: 'free',
+      hubspot_sync_status: 'pending', // Will be synced to HubSpot in background
     })
     .select('id')
     .single();
 
   if (error || !created) {
-    throw new Error('Failed to get or create placeholder company');
+    console.error('Error creating company:', error);
+    throw new Error(`Failed to create company for "${normalizedName}": ${error?.message}`);
   }
 
-  return created.id;
+  return { companyId: created.id, isNew: true };
+}
+
+export interface ImportResult {
+  jobId: string;
+  companyId: string;
+  isNewCompany: boolean;
 }
 
 /**
  * Import external job into jobs table
  * Uses regular client - RLS policies allow admins to insert jobs
+ * Creates real company records (not placeholders) for unmatched companies
  */
 export async function importExternalJob(
   externalJob: ExternalJob,
   companyId: string | null
-): Promise<string> {
+): Promise<ImportResult> {
   // Use regular client - admin RLS policies allow admins to insert jobs
   const supabase = await createClient();
 
-  // If no company matched, use placeholder company
-  const finalCompanyId = companyId || await getPlaceholderCompanyId(supabase);
+  // If no company matched, create a real (unverified) company record
+  let finalCompanyId: string;
+  let isNewCompany = false;
+
+  if (companyId) {
+    finalCompanyId = companyId;
+  } else if (externalJob.company_name) {
+    const result = await getOrCreateCompanyForExternalJob(
+      supabase,
+      externalJob.company_name,
+      externalJob.company_url
+    );
+    finalCompanyId = result.companyId;
+    isNewCompany = result.isNew;
+  } else {
+    throw new Error('Cannot import job without company name or matched company');
+  }
 
   // Map external job fields to jobs table fields
   const jobData = {
@@ -124,13 +176,20 @@ export async function importExternalJob(
     throw new Error(`Failed to import job: ${error.message}`);
   }
 
-  // Update external job status
+  // Update external job status and link to matched company
   await supabase
     .from('external_jobs')
-    .update({ status: 'imported' })
+    .update({
+      status: 'imported',
+      matched_company_id: finalCompanyId, // Update the match if we created a new company
+    })
     .eq('id', externalJob.id);
 
-  return data.id;
+  return {
+    jobId: data.id,
+    companyId: finalCompanyId,
+    isNewCompany,
+  };
 }
 
 /**

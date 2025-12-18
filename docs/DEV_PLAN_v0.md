@@ -1,5 +1,8 @@
 # FSG Talent Hub – DEV PLAN (V0)
 
+> **⚠️ DEPRECATED**: This document is archived for historical reference. V0 implementation is complete.
+> See **DEV_PLAN_v2.md** for current development status and active features.
+
 This file is the **implementation guide** for V0 of the FSG Talent Hub.
 Architecture, product scope, and schema are defined in:
 

@@ -216,25 +216,6 @@ function parseIndeedRSS(xmlText: string): IndeedJob[] {
 }
 
 /**
- * Extract value from XML using regex (server-side compatible)
- */
-function extractXMLValue(xml: string, tagName: string): string | undefined {
-  // Try CDATA first: <tag><![CDATA[value]]></tag>
-  const cdataMatch = xml.match(new RegExp(`<${tagName}><!\\[CDATA\\[(.*?)\\]\\]></${tagName}>`, 'i'));
-  if (cdataMatch) {
-    return cdataMatch[1].trim();
-  }
-  
-  // Try regular: <tag>value</tag>
-  const regularMatch = xml.match(new RegExp(`<${tagName}>(.*?)</${tagName}>`, 'i'));
-  if (regularMatch) {
-    return regularMatch[1].trim();
-  }
-  
-  return undefined;
-}
-
-/**
  * Normalize Indeed job to our external_jobs format
  */
 export function normalizeIndeedJob(

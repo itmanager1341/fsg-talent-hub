@@ -5,10 +5,10 @@ import {
   getPendingJobImports,
   importExternalJob,
   updateJobImportStatus,
+  type ImportResult,
 } from '@/lib/services/job-import';
 import type { ExternalJob } from '@/lib/services/job-ingestion';
 import { createClient } from '@/lib/supabase/server';
-import { processEmployerProspects } from '@/lib/services/employer-prospecting';
 
 export interface ImportQueueItem {
   id: string;
@@ -78,6 +78,7 @@ export async function getImportQueue(
 
 /**
  * Approve and import a job
+ * Now creates real company records (not placeholders) and links to employer_prospects
  */
 export async function approveImportAction(externalJobId: string) {
   await requireAdmin();
@@ -95,8 +96,8 @@ export async function approveImportAction(externalJobId: string) {
   }
 
   try {
-    // Import the job
-    const jobId = await importExternalJob(
+    // Import the job (creates real company if needed)
+    const importResult: ImportResult = await importExternalJob(
       externalJob as ExternalJob,
       externalJob.matched_company_id
     );
@@ -109,29 +110,34 @@ export async function approveImportAction(externalJobId: string) {
       .single();
 
     if (existingImport) {
-      await updateJobImportStatus(existingImport.id, 'imported', jobId);
+      await updateJobImportStatus(existingImport.id, 'imported', importResult.jobId);
     } else {
       await supabase.from('job_imports').insert({
         external_job_id: externalJobId,
-        company_id: externalJob.matched_company_id,
+        company_id: importResult.companyId,
         status: 'imported',
         import_method: 'manual_review',
-        imported_job_id: jobId,
+        imported_job_id: importResult.jobId,
         processed_at: new Date().toISOString(),
       });
     }
 
-    // Process employer prospects for unmatched companies
-    if (!externalJob.matched_company_id && externalJob.company_name) {
+    // If a new company was created, create or update employer prospect (without inline HubSpot call)
+    if (importResult.isNewCompany && externalJob.company_name) {
       try {
-        await processEmployerProspects([externalJobId]);
+        await createOrUpdateEmployerProspect(
+          supabase,
+          externalJob.company_name,
+          externalJob.company_url,
+          importResult.companyId
+        );
       } catch (error) {
-        console.error('Error processing employer prospects:', error);
+        console.error('Error creating employer prospect:', error);
         // Don't fail the import if prospecting fails
       }
     }
 
-    return { success: true, jobId };
+    return { success: true, jobId: importResult.jobId, isNewCompany: importResult.isNewCompany };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error in approveImportAction:', errorMessage);
@@ -140,37 +146,89 @@ export async function approveImportAction(externalJobId: string) {
 }
 
 /**
+ * Create or update an employer prospect linked to the created company
+ * HubSpot sync happens in background, not inline
+ */
+async function createOrUpdateEmployerProspect(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  companyName: string,
+  companyUrl: string | null,
+  createdCompanyId: string
+) {
+  // Check if prospect already exists for this company
+  const { data: existing } = await supabase
+    .from('employer_prospects')
+    .select('id, job_count')
+    .eq('created_company_id', createdCompanyId)
+    .single();
+
+  if (existing) {
+    // Update existing prospect - increment job count
+    await supabase
+      .from('employer_prospects')
+      .update({
+        job_count: (existing.job_count || 0) + 1,
+        last_seen_at: new Date().toISOString(),
+      })
+      .eq('id', existing.id);
+  } else {
+    // Create new prospect linked to company
+    // HubSpot IDs are NULL - will be filled by background sync
+    await supabase.from('employer_prospects').insert({
+      company_name: companyName,
+      company_url: companyUrl,
+      created_company_id: createdCompanyId,
+      job_count: 1,
+      first_seen_at: new Date().toISOString(),
+      last_seen_at: new Date().toISOString(),
+      enrichment_status: 'pending',
+      outreach_status: 'pending',
+      // hubspot_company_id: NULL - filled by background sync
+      // hubspot_contact_id: NULL - filled by background sync
+    });
+  }
+}
+
+/**
  * Reject a job import
  */
-export async function rejectImportAction(externalJobId: string, reason?: string) {
+export async function rejectImportAction(
+  externalJobId: string,
+  reason?: string
+): Promise<{ success: boolean; error?: string }> {
   await requireAdmin();
   const supabase = await createClient();
 
-  // Update external job status
-  await supabase
-    .from('external_jobs')
-    .update({ status: 'rejected', processing_notes: reason || 'Rejected by admin' })
-    .eq('id', externalJobId);
+  try {
+    // Update external job status
+    await supabase
+      .from('external_jobs')
+      .update({ status: 'rejected', processing_notes: reason || 'Rejected by admin' })
+      .eq('id', externalJobId);
 
-  // Update or create import record
-  const { data: existingImport } = await supabase
-    .from('job_imports')
-    .select('id')
-    .eq('external_job_id', externalJobId)
-    .single();
+    // Update or create import record
+    const { data: existingImport } = await supabase
+      .from('job_imports')
+      .select('id')
+      .eq('external_job_id', externalJobId)
+      .single();
 
-  if (existingImport) {
-    await updateJobImportStatus(existingImport.id, 'failed', undefined, reason);
-  } else {
-    await supabase.from('job_imports').insert({
-      external_job_id: externalJobId,
-      status: 'failed',
-      import_method: 'manual_review',
-      error_message: reason || 'Rejected by admin',
-      processed_at: new Date().toISOString(),
-    });
+    if (existingImport) {
+      await updateJobImportStatus(existingImport.id, 'failed', undefined, reason);
+    } else {
+      await supabase.from('job_imports').insert({
+        external_job_id: externalJobId,
+        status: 'failed',
+        import_method: 'manual_review',
+        error_message: reason || 'Rejected by admin',
+        processed_at: new Date().toISOString(),
+      });
+    }
+
+    return { success: true };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return { success: false, error: errorMessage };
   }
-
-  return { success: true };
 }
 

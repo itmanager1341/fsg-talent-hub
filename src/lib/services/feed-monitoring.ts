@@ -5,7 +5,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
-import { fetchRSSFeed, validateFeed } from './feed-discovery';
+import { validateFeed } from './feed-discovery';
 
 export interface FeedHealth {
   source_id: string;

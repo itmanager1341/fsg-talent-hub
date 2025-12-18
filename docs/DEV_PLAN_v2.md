@@ -1,6 +1,6 @@
 # FSG Talent Hub – DEV PLAN (V2)
 
-**Version:** 2.4
+**Version:** 2.5
 **Last Updated:** 2025-12-17
 **Status:** In Progress
 **Authors:** Development Team
@@ -16,6 +16,7 @@
 | 2.2 | 2025-12-16 | Dev Team | Phase 2 (Vector Search) complete |
 | 2.3 | 2025-12-16 | Dev Team | Phase 4 (Resume Database) complete |
 | 2.4 | 2025-12-17 | Dev Team | Phase 5 (AI Applicant Ranking) complete |
+| 2.5 | 2025-12-17 | Dev Team | Phase 6 (External Job Import) complete |
 
 ---
 
@@ -30,6 +31,7 @@ V2 enhances the platform with AI-powered candidate features, vector search, and 
 | **Brand Context Layers** | FSI/AMAA themed views | High | Pending |
 | **Resume Database** | Employer candidate search | High | ✅ Complete |
 | **AI Applicant Ranking** | Employer hiring assistance | Medium | ✅ Complete |
+| **External Job Import** | Multi-source job aggregation | High | ✅ Complete |
 
 ---
 
@@ -343,15 +345,119 @@ ALTER TABLE jobs ADD COLUMN ranking_criteria JSONB DEFAULT '{}';
 
 ---
 
+### Phase 6: External Job Import System (High Priority) ✅ COMPLETE
+
+**Purpose:** Aggregate jobs from external sources (APIs, RSS feeds) to populate the platform
+
+#### Features
+- [x] Multi-source job ingestion (Indeed, Jooble, Adzuna, RSS feeds)
+- [x] Admin portal for source management (`/admin/job-sources`)
+- [x] Import queue with approval workflow
+- [x] Quality scoring and monitoring dashboard
+- [x] Duplicate detection system
+- [x] Company matching (match external jobs to existing companies)
+- [x] Employer prospecting (identify new employer leads from imported jobs)
+- [x] HubSpot CRM integration for lead creation
+- [x] Feed discovery tool for RSS sources
+
+#### Database Schema
+```sql
+-- Job sources configuration
+CREATE TABLE job_sources (
+  id UUID PRIMARY KEY,
+  name TEXT NOT NULL,
+  source_type TEXT NOT NULL, -- 'indeed', 'jooble', 'adzuna', 'rss', 'generic_rss'
+  is_active BOOLEAN DEFAULT true,
+  config JSONB DEFAULT '{}',
+  last_synced_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- External jobs staging
+CREATE TABLE external_jobs (
+  id UUID PRIMARY KEY,
+  source_id UUID REFERENCES job_sources(id),
+  external_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  company_name TEXT,
+  matched_company_id UUID REFERENCES companies(id),
+  status TEXT DEFAULT 'pending', -- pending, matched, imported, rejected, duplicate
+  quality_score INTEGER,
+  raw_data JSONB,
+  UNIQUE(source_id, external_id)
+);
+
+-- Sync history tracking
+CREATE TABLE job_sync_logs (
+  id UUID PRIMARY KEY,
+  source_id UUID REFERENCES job_sources(id),
+  status TEXT, -- success, failed, partial
+  jobs_found INTEGER,
+  jobs_new INTEGER,
+  jobs_updated INTEGER,
+  jobs_duplicates INTEGER,
+  errors JSONB,
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ
+);
+```
+
+#### Edge Functions
+| Function | Purpose | Status |
+|----------|---------|--------|
+| `sync-job-source` | Fetch jobs from external sources | ✅ Deployed |
+| `process-external-jobs` | Match and import external jobs | ✅ Deployed |
+| `create-hubspot-lead` | Create employer leads in HubSpot | ✅ Deployed |
+
+#### Services
+| Service | Location | Purpose |
+|---------|----------|---------|
+| job-import.ts | `src/lib/services/` | Core import orchestration |
+| job-normalization.ts | `src/lib/services/` | Normalize job data across sources |
+| company-matching.ts | `src/lib/services/` | Match jobs to existing companies |
+| duplicate-detection.ts | `src/lib/services/` | Identify duplicate postings |
+| source-quality.ts | `src/lib/services/` | Calculate quality scores |
+| rss-parser.ts | `src/lib/services/` | Parse RSS/Atom feeds |
+| feed-discovery.ts | `src/lib/services/` | Discover feeds from websites |
+
+#### UI Components
+| Component | Location | Status |
+|-----------|----------|--------|
+| Job Sources List | `/admin/job-sources` | ✅ Complete |
+| Source Configuration | `/admin/job-sources/[id]` | ✅ Complete |
+| Import Queue | `/admin/job-sources/imports` | ✅ Complete |
+| Feed Discovery | `/admin/job-sources/feeds` | ✅ Complete |
+| Quality Dashboard | `/admin/job-sources` (metrics) | ✅ Complete |
+| Employer Prospecting | `/admin/job-sources/prospecting` | ✅ Complete |
+
+#### External Source Status
+| Source | API Status | Implementation |
+|--------|------------|----------------|
+| Indeed | RSS deprecated, Publisher API required | ✅ Ready (awaiting API approval) |
+| Jooble | Free API available | ✅ Complete |
+| Adzuna | Free tier (10K/month) | ✅ Complete |
+| Generic RSS | Any valid feed | ✅ Complete |
+
+#### Documentation
+| Document | Purpose |
+|----------|---------|
+| `docs/JOB_SOURCE_STRATEGY.md` | Strategy and legal compliance |
+| `docs/JOB_POPULATION_AUDIT.md` | Implementation audit |
+| `docs/INDEED_API_SETUP.md` | Indeed-specific setup guide |
+| `docs/SYNC_TROUBLESHOOTING.md` | Troubleshooting guide |
+
+---
+
 ## Implementation Order
 
-| Phase | Feature | Estimated Effort | Dependencies |
-|-------|---------|------------------|--------------|
-| 1 | AI Resume Builder | 1-2 weeks | None |
-| 2 | Vector Search | 1 week | pgvector extension |
-| 3 | Brand Context Layers | 1-2 weeks | None |
-| 4 | Resume Database | 1 week | Phase 2 (for matching) |
-| 5 | AI Applicant Ranking | 1 week | Phase 2 (embeddings) |
+| Phase | Feature | Estimated Effort | Dependencies | Status |
+|-------|---------|------------------|--------------|--------|
+| 1 | AI Resume Builder | 1-2 weeks | None | ✅ Complete |
+| 2 | Vector Search | 1 week | pgvector extension | ✅ Complete |
+| 3 | Brand Context Layers | 1-2 weeks | None | Pending |
+| 4 | Resume Database | 1 week | Phase 2 (for matching) | ✅ Complete |
+| 5 | AI Applicant Ranking | 1 week | Phase 2 (embeddings) | ✅ Complete |
+| 6 | External Job Import | 1-2 weeks | None | ✅ Complete |
 
 ---
 
