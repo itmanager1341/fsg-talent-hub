@@ -6,8 +6,8 @@ import {
   getAllJobSources,
   getSyncLogs,
   getJobSourcesStats,
-  triggerSyncAction,
 } from './actions';
+import { SyncButton } from './SyncButton';
 
 export const metadata = {
   title: 'Job Sources | Admin | FSG Talent Hub',
@@ -66,6 +66,16 @@ export default async function JobSourcesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Link href="/admin/job-sources/imports">
+            <Button variant="outline">
+              Import Queue
+              {stats.pendingImports > 0 && (
+                <span className="ml-2 rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">
+                  {stats.pendingImports}
+                </span>
+              )}
+            </Button>
+          </Link>
           <Link href="/admin/job-sources/quality">
             <Button variant="outline">Quality Metrics</Button>
           </Link>
@@ -87,11 +97,14 @@ export default async function JobSourcesPage() {
           value={stats.jobsIngestedToday}
           subtitle="New jobs from all sources"
         />
-        <StatCard
-          title="Pending Imports"
-          value={stats.pendingImports}
-          subtitle="Awaiting review"
-        />
+        <Link href="/admin/job-sources/imports">
+          <StatCard
+            title="Pending Imports"
+            value={stats.pendingImports}
+            subtitle="Awaiting review"
+            className="cursor-pointer hover:bg-gray-50 transition-colors"
+          />
+        </Link>
         <StatCard
           title="Match Rate"
           value={`${stats.matchRate}%`}
@@ -144,16 +157,7 @@ export default async function JobSourcesPage() {
                           Configure
                         </Button>
                       </Link>
-                      <form
-                        action={async () => {
-                          'use server';
-                          await triggerSyncAction(source.id);
-                        }}
-                      >
-                        <Button variant="outline" size="sm" type="submit">
-                          Sync Now
-                        </Button>
-                      </form>
+                      <SyncButton sourceId={source.id} />
                     </div>
                   </div>
                 ))}

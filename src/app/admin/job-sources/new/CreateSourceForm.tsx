@@ -15,6 +15,7 @@ export function CreateSourceForm() {
     source_type: 'rss' as 'api' | 'rss' | 'scraper' | 'partner',
     search_query: 'mortgage servicing OR M&A advisory',
     search_location: '',
+    feed_url: '', // RSS feed URL
     // API credentials
     publisher_id: '', // Indeed
     app_id: '', // Adzuna
@@ -56,13 +57,15 @@ export function CreateSourceForm() {
         config.api_key = formData.api_key;
       }
 
-      // Add RSS feed URL if source type is RSS
-      if (formData.source_type === 'rss') {
-        const feedUrl = (formData as any).feed_url;
-        if (!feedUrl) {
-          throw new Error('RSS feed requires a feed URL');
+      // Add RSS feed URL if source type is RSS (but not for Indeed - it builds URL automatically)
+      if (formData.source_type === 'rss' && !isIndeed) {
+        if (!formData.feed_url) {
+          throw new Error('RSS feed requires a feed URL (unless using Indeed, which builds the URL automatically)');
         }
-        config.feed_url = feedUrl;
+        config.feed_url = formData.feed_url;
+      } else if (formData.source_type === 'rss' && isIndeed && formData.feed_url) {
+        // Allow feed_url for Indeed but it's optional
+        config.feed_url = formData.feed_url;
       }
 
       await createSourceAction({
@@ -105,7 +108,7 @@ export function CreateSourceForm() {
           id="name"
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           placeholder="e.g., Indeed RSS, Adzuna API, Jooble API"
           required
         />
@@ -124,7 +127,7 @@ export function CreateSourceForm() {
           onChange={(e) =>
             setFormData({ ...formData, source_type: e.target.value as 'api' | 'rss' | 'scraper' | 'partner' })
           }
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           required
         >
           <option value="rss">RSS Feed</option>
@@ -143,7 +146,7 @@ export function CreateSourceForm() {
           id="search_query"
           value={formData.search_query}
           onChange={(e) => setFormData({ ...formData, search_query: e.target.value })}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           placeholder="mortgage servicing OR M&A advisory"
         />
         <p className="mt-1 text-xs text-gray-500">
@@ -160,7 +163,7 @@ export function CreateSourceForm() {
           id="search_location"
           value={formData.search_location}
           onChange={(e) => setFormData({ ...formData, search_location: e.target.value })}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           placeholder="City, State or ZIP"
         />
       </div>
@@ -176,7 +179,7 @@ export function CreateSourceForm() {
             id="publisher_id"
             value={formData.publisher_id}
             onChange={(e) => setFormData({ ...formData, publisher_id: e.target.value })}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             placeholder="Indeed Publisher ID for API access"
           />
           <p className="mt-1 text-xs text-gray-500">
@@ -196,7 +199,7 @@ export function CreateSourceForm() {
               id="app_id"
               value={formData.app_id}
               onChange={(e) => setFormData({ ...formData, app_id: e.target.value })}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               placeholder="Your Adzuna App ID"
               required={isAdzuna}
             />
@@ -221,7 +224,7 @@ export function CreateSourceForm() {
               id="app_key"
               value={formData.app_key}
               onChange={(e) => setFormData({ ...formData, app_key: e.target.value })}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               placeholder="Your Adzuna App Key"
               required={isAdzuna}
             />
@@ -239,7 +242,7 @@ export function CreateSourceForm() {
             id="api_key"
             value={formData.api_key}
             onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             placeholder="Your Jooble API Key"
             required={isJooble}
           />
@@ -260,25 +263,21 @@ export function CreateSourceForm() {
       {formData.source_type === 'rss' && (
         <div>
           <label htmlFor="feed_url" className="block text-sm font-medium text-gray-700">
-            RSS Feed URL *
+            RSS Feed URL {!isIndeed && '*'}
           </label>
           <input
             type="url"
             id="feed_url"
-            value={(formData as any).feed_url || ''}
-            onChange={(e) => {
-              const config = (formData.config as any) || {};
-              setFormData({
-                ...formData,
-                config: { ...config, feed_url: e.target.value },
-              } as any);
-            }}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            placeholder="https://example.com/careers/rss"
-            required={formData.source_type === 'rss'}
+            value={formData.feed_url}
+            onChange={(e) => setFormData({ ...formData, feed_url: e.target.value })}
+            className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            placeholder={isIndeed ? "Leave empty - URL built automatically from search query" : "https://example.com/careers/rss"}
+            required={formData.source_type === 'rss' && !isIndeed}
           />
           <p className="mt-1 text-xs text-gray-500">
-            Enter the RSS feed URL. Common patterns: /careers/rss, /jobs/feed, /employment/rss
+            {isIndeed 
+              ? "For Indeed sources, leave empty - the system builds the RSS URL automatically from your search query and location."
+              : "Enter the RSS feed URL. Common patterns: /careers/rss, /jobs/feed, /employment/rss"}
           </p>
         </div>
       )}
@@ -294,7 +293,7 @@ export function CreateSourceForm() {
             onChange={(e) =>
               setFormData({ ...formData, sync_frequency: e.target.value as 'hourly' | 'daily' | 'realtime' })
             }
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
             <option value="hourly">Hourly</option>
             <option value="daily">Daily</option>
@@ -313,7 +312,7 @@ export function CreateSourceForm() {
             onChange={(e) =>
               setFormData({ ...formData, rate_limit_per_hour: parseInt(e.target.value, 10) || 10 })
             }
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             min="1"
           />
         </div>

@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
-import { getImportQueue, approveImportAction, rejectImportAction } from './actions';
+import { getImportQueue } from './actions';
+import { ImportActions } from './ImportActions';
 
 export const metadata = {
   title: 'Import Queue | Job Sources | Admin | FSG Talent Hub',
@@ -109,7 +110,7 @@ export default async function ImportQueuePage({
               </thead>
               <tbody>
                 {imports.map((item) => (
-                  <tr key={item.id} className="border-b border-gray-100">
+                  <tr key={item.external_job_id} className="border-b border-gray-100">
                     <td className="py-3 pr-4 font-medium text-gray-900">
                       {item.external_job.title}
                     </td>
@@ -127,24 +128,10 @@ export default async function ImportQueuePage({
                     </td>
                     <td className="py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {item.external_job.status === 'matched' && (
-                          <form
-                            action={approveImportAction.bind(null, item.external_job_id)}
-                          >
-                            <Button variant="outline" size="sm" type="submit">
-                              Import
-                            </Button>
-                          </form>
-                        )}
-                        {item.external_job.status !== 'rejected' && (
-                          <form
-                            action={rejectImportAction.bind(null, item.external_job_id)}
-                          >
-                            <Button variant="outline" size="sm" type="submit">
-                              Reject
-                            </Button>
-                          </form>
-                        )}
+                        <ImportActions
+                          externalJobId={item.external_job_id}
+                          status={item.external_job.status}
+                        />
                         <Link href={`/admin/job-sources/imports/${item.external_job_id}`}>
                           <Button variant="outline" size="sm">
                             View

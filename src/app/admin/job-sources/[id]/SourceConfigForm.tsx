@@ -22,6 +22,7 @@ export function SourceConfigForm({ source }: SourceConfigFormProps) {
     is_active: source.is_active,
     search_query: configData?.search_query || 'mortgage servicing OR M&A advisory',
     search_location: configData?.search_location || '',
+    feed_url: configData?.feed_url || '', // RSS feed URL
     // API credentials - show based on source type
     publisher_id: configData?.publisher_id || '', // Indeed
     app_id: configData?.app_id || '', // Adzuna
@@ -47,6 +48,16 @@ export function SourceConfigForm({ source }: SourceConfigFormProps) {
         search_query: config.search_query,
         search_location: config.search_location,
       };
+
+      // Add RSS feed URL if source type is RSS (optional for Indeed)
+      if (source.source_type === 'rss') {
+        if (!isIndeed && !config.feed_url) {
+          throw new Error('RSS feed requires a feed URL (unless using Indeed, which builds the URL automatically)');
+        }
+        if (config.feed_url) {
+          configObj.feed_url = config.feed_url;
+        }
+      }
 
       if (isIndeed && config.publisher_id) {
         configObj.publisher_id = config.publisher_id;
@@ -103,7 +114,7 @@ export function SourceConfigForm({ source }: SourceConfigFormProps) {
           id="name"
           value={config.name}
           onChange={(e) => setConfig({ ...config, name: e.target.value })}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           required
         />
       </div>
@@ -117,7 +128,7 @@ export function SourceConfigForm({ source }: SourceConfigFormProps) {
           id="search_query"
           value={config.search_query}
           onChange={(e) => setConfig({ ...config, search_query: e.target.value })}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           placeholder="mortgage servicing OR M&A advisory"
         />
         <p className="mt-1 text-xs text-gray-500">
@@ -134,7 +145,7 @@ export function SourceConfigForm({ source }: SourceConfigFormProps) {
           id="search_location"
           value={config.search_location}
           onChange={(e) => setConfig({ ...config, search_location: e.target.value })}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           placeholder="City, State or ZIP"
         />
       </div>
@@ -150,7 +161,7 @@ export function SourceConfigForm({ source }: SourceConfigFormProps) {
             id="publisher_id"
             value={config.publisher_id}
             onChange={(e) => setConfig({ ...config, publisher_id: e.target.value })}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             placeholder="Indeed Publisher ID for API access"
           />
           <p className="mt-1 text-xs text-gray-500">
@@ -170,7 +181,7 @@ export function SourceConfigForm({ source }: SourceConfigFormProps) {
               id="app_id"
               value={config.app_id}
               onChange={(e) => setConfig({ ...config, app_id: e.target.value })}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               placeholder="Your Adzuna App ID"
             />
             <p className="mt-1 text-xs text-gray-500">
@@ -194,7 +205,7 @@ export function SourceConfigForm({ source }: SourceConfigFormProps) {
               id="app_key"
               value={config.app_key}
               onChange={(e) => setConfig({ ...config, app_key: e.target.value })}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               placeholder="Your Adzuna App Key"
             />
           </div>
@@ -211,7 +222,7 @@ export function SourceConfigForm({ source }: SourceConfigFormProps) {
             id="api_key"
             value={config.api_key}
             onChange={(e) => setConfig({ ...config, api_key: e.target.value })}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             placeholder="Your Jooble API Key"
           />
           <p className="mt-1 text-xs text-gray-500">
@@ -228,6 +239,28 @@ export function SourceConfigForm({ source }: SourceConfigFormProps) {
         </div>
       )}
 
+      {source.source_type === 'rss' && (
+        <div>
+          <label htmlFor="feed_url" className="block text-sm font-medium text-gray-700">
+            RSS Feed URL {!isIndeed && '*'}
+          </label>
+          <input
+            type="url"
+            id="feed_url"
+            value={config.feed_url}
+            onChange={(e) => setConfig({ ...config, feed_url: e.target.value })}
+            className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            placeholder={isIndeed ? "Leave empty - URL built automatically from search query" : "https://example.com/careers/rss"}
+            required={source.source_type === 'rss' && !isIndeed}
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            {isIndeed 
+              ? "For Indeed sources, leave empty - the system builds the RSS URL automatically from your search query and location."
+              : "Enter the RSS feed URL. Common patterns: /careers/rss, /jobs/feed, /employment/rss"}
+          </p>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label htmlFor="sync_frequency" className="block text-sm font-medium text-gray-700">
@@ -239,7 +272,7 @@ export function SourceConfigForm({ source }: SourceConfigFormProps) {
             onChange={(e) =>
               setConfig({ ...config, sync_frequency: e.target.value as 'hourly' | 'daily' | 'realtime' })
             }
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
             <option value="hourly">Hourly</option>
             <option value="daily">Daily</option>
@@ -258,7 +291,7 @@ export function SourceConfigForm({ source }: SourceConfigFormProps) {
             onChange={(e) =>
               setConfig({ ...config, rate_limit_per_hour: parseInt(e.target.value, 10) || 10 })
             }
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             min="1"
           />
         </div>

@@ -19,6 +19,103 @@ interface IndeedJob {
   salary?: string;
 }
 
+interface RSSFeedItem {
+  title: string;
+  link: string;
+  description?: string;
+  guid?: string;
+  author?: string;
+  pubDate?: string;
+}
+
+interface RSSFeed {
+  items: RSSFeedItem[];
+}
+
+/**
+ * Parse generic RSS feed (RSS 2.0 or Atom)
+ */
+function parseGenericRSS(xmlText: string): RSSFeed {
+  const isAtom = xmlText.includes('<feed') && xmlText.includes('xmlns=\'http://www.w3.org/2005/Atom\'');
+  
+  if (isAtom) {
+    return parseAtomFeed(xmlText);
+  } else {
+    return parseRSS2Feed(xmlText);
+  }
+}
+
+function parseRSS2Feed(xmlText: string): RSSFeed {
+  const items: RSSFeedItem[] = [];
+  
+  const itemMatches = xmlText.matchAll(/<item>([\s\S]*?)<\/item>/g);
+  
+  for (const match of itemMatches) {
+    const itemXml = match[1];
+    const title = extractXMLValue(itemXml, 'title') || '';
+    const link = extractXMLValue(itemXml, 'link') || '';
+    const description = extractXMLValue(itemXml, 'description');
+    const guid = extractXMLValue(itemXml, 'guid');
+    const author = extractXMLValue(itemXml, 'author') || extractXMLValue(itemXml, 'dc:creator');
+    const pubDate = extractXMLValue(itemXml, 'pubDate');
+    
+    if (title && link) {
+      items.push({ title, link, description, guid, author, pubDate });
+    }
+  }
+  
+  return { items };
+}
+
+function parseAtomFeed(xmlText: string): RSSFeed {
+  const items: RSSFeedItem[] = [];
+  
+  const entryMatches = xmlText.matchAll(/<entry>([\s\S]*?)<\/entry>/g);
+  
+  for (const match of entryMatches) {
+    const entryXml = match[1];
+    const title = extractXMLValue(entryXml, 'title') || '';
+    let link = extractXMLValue(entryXml, 'link');
+    
+    // Atom links can be in href attribute
+    if (!link) {
+      const linkMatch = entryXml.match(/<link[^>]+href=["']([^"']+)["']/);
+      if (linkMatch) {
+        link = linkMatch[1];
+      }
+    }
+    
+    const description = extractXMLValue(entryXml, 'summary') || extractXMLValue(entryXml, 'content');
+    const guid = extractXMLValue(entryXml, 'id');
+    const author = extractXMLValue(entryXml, 'author') || extractXMLValue(entryXml, 'name');
+    const pubDate = extractXMLValue(entryXml, 'published') || extractXMLValue(entryXml, 'updated');
+    
+    if (title && link) {
+      items.push({ title, link, description, guid, author, pubDate });
+    }
+  }
+  
+  return { items };
+}
+
+function extractXMLValue(xml: string, tagName: string): string | undefined {
+  // Handle CDATA
+  const cdataRegex = new RegExp(`<${tagName}><!\\[CDATA\\[(.*?)\\]\\]></${tagName}>`, 'i');
+  const cdataMatch = xml.match(cdataRegex);
+  if (cdataMatch) {
+    return cdataMatch[1].trim();
+  }
+  
+  // Handle regular tags
+  const regex = new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)</${tagName}>`, 'i');
+  const match = xml.match(regex);
+  if (match) {
+    return match[1].trim();
+  }
+  
+  return undefined;
+}
+
 /**
  * Parse Indeed RSS feed
  */
@@ -192,24 +289,22 @@ serve(async (req) => {
       const config = source.config as Record<string, any>;
       
       if (source.name.includes('indeed')) {
-        // Fetch from Indeed RSS (free, no API key required)
         const query = config.search_query || 'mortgage servicing OR M&A advisory';
         const location = config.search_location || '';
+        const publisherId = config.publisher_id;
         
-        const rssUrl = `https://www.indeed.com/rss?q=${encodeURIComponent(query)}&l=${encodeURIComponent(location)}&radius=25&limit=25`;
-        
-        const rssResponse = await fetch(rssUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; FSG Talent Hub Job Aggregator)',
-          },
-        });
-
-        if (rssResponse.ok) {
-          const xmlText = await rssResponse.text();
-          const indeedJobs = await parseIndeedRSS(xmlText);
-          jobs = indeedJobs.map((job) => normalizeIndeedJob(job, sourceId));
+        if (publisherId) {
+          // Use Indeed Publisher API
+          // TODO: Implement Indeed Publisher API integration
+          // The API endpoint format is: https://api.indeed.com/ads/apisearch?publisher={publisherId}&q={query}&l={location}
+          result.errors.push('Indeed Publisher API integration is not yet implemented. Please use an alternative source (Adzuna, Jooble) or implement the Publisher API.');
         } else {
-          result.errors.push(`Indeed RSS fetch failed: ${rssResponse.status}`);
+          // RSS feed endpoint has been discontinued by Indeed (returns 404)
+          result.errors.push(
+            'Indeed RSS feeds have been discontinued. ' +
+            'Please use the Indeed Publisher API instead. ' +
+            'Get a Publisher ID from https://www.indeed.com/publisher and add it to your source configuration.'
+          );
         }
       } else if (source.name.includes('adzuna')) {
         // Fetch from Adzuna API
@@ -255,51 +350,125 @@ serve(async (req) => {
         const query = config.search_query || 'mortgage servicing OR financial services';
         const location = config.search_location || '';
         
-        if (!apiKey) {
-          result.errors.push('Jooble API requires api_key in config');
+        if (!apiKey || apiKey.length < 10) {
+          result.errors.push('Jooble API requires a valid api_key in config (key appears to be invalid or too short)');
         } else {
           const dateFrom = new Date();
           dateFrom.setDate(dateFrom.getDate() - 7);
           
-          const joobleResponse = await fetch(`https://jooble.org/api/${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              keywords: query,
-              location: location,
-              radius: 25,
-              page: 1,
-              searchMode: 1,
-              datefrom: dateFrom.toISOString().split('T')[0],
-            }),
-          });
+          console.log(`Fetching Jooble API with key: ${apiKey.substring(0, 4)}...`);
           
-          if (joobleResponse.ok) {
-            const joobleData = await joobleResponse.json();
-            if (joobleData.jobs) {
-              jobs = joobleData.jobs.map((job: any) => {
-                const locationParts = job.location?.split(',').map((s: string) => s.trim()) || [];
-                return {
-                  external_id: job.id,
-                  source_url: job.link,
-                  title: job.title,
-                  description: job.snippet,
-                  company_name: job.source,
-                  location_city: locationParts[0],
-                  location_state: locationParts[1],
-                  location_country: locationParts[2] || 'USA',
-                  salary_min: null, // Parse from job.salary if needed
-                  salary_max: null,
-                  job_type: job.type?.toLowerCase().includes('full') ? 'full_time' : null,
-                  work_setting: job.location?.toLowerCase().includes('remote') ? 'remote' : 'onsite',
-                  raw_data: { ...job, normalized_at: new Date().toISOString() },
-                  expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-                };
-              });
+          try {
+            const joobleResponse = await fetch(`https://jooble.org/api/${apiKey}`, {
+              method: 'POST',
+              headers: { 
+                'Content-Type': 'application/json',
+                'User-Agent': 'FSG Talent Hub Job Aggregator',
+              },
+              body: JSON.stringify({
+                keywords: query,
+                location: location,
+                radius: 25,
+                page: 1,
+                searchMode: 1,
+                datefrom: dateFrom.toISOString().split('T')[0],
+              }),
+            });
+            
+            console.log(`Jooble API response status: ${joobleResponse.status}`);
+            
+            if (joobleResponse.ok) {
+              const joobleData = await joobleResponse.json();
+              console.log(`Jooble API response keys: ${Object.keys(joobleData).join(', ')}`);
+              
+              if (joobleData.jobs && Array.isArray(joobleData.jobs)) {
+                console.log(`Jooble returned ${joobleData.jobs.length} jobs`);
+                jobs = joobleData.jobs.map((job: any) => {
+                  const locationParts = job.location?.split(',').map((s: string) => s.trim()) || [];
+                  return {
+                    external_id: job.id,
+                    source_url: job.link,
+                    title: job.title,
+                    description: job.snippet,
+                    company_name: job.source,
+                    location_city: locationParts[0],
+                    location_state: locationParts[1],
+                    location_country: locationParts[2] || 'USA',
+                    salary_min: null, // Parse from job.salary if needed
+                    salary_max: null,
+                    job_type: job.type?.toLowerCase().includes('full') ? 'full_time' : null,
+                    work_setting: job.location?.toLowerCase().includes('remote') ? 'remote' : 'onsite',
+                    raw_data: { ...job, normalized_at: new Date().toISOString() },
+                    expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                  };
+                });
+              } else {
+                result.errors.push(`Jooble API returned no jobs. Response: ${JSON.stringify(joobleData).substring(0, 200)}`);
+              }
+            } else {
+              const errorText = await joobleResponse.text().catch(() => 'Unable to read error response');
+              const errorDetails = errorText.substring(0, 200);
+              result.errors.push(
+                `Jooble API fetch failed: ${joobleResponse.status} ${joobleResponse.statusText}. ` +
+                `Response: ${errorDetails}. ` +
+                `Check that your API key is valid at https://jooble.org/api/about`
+              );
+              console.error(`Jooble API error: ${joobleResponse.status}`, errorDetails);
             }
-          } else {
-            result.errors.push(`Jooble API fetch failed: ${joobleResponse.status}`);
+          } catch (fetchError: any) {
+            const errorMsg = fetchError.message || 'Unknown fetch error';
+            result.errors.push(`Jooble API fetch exception: ${errorMsg}`);
+            console.error('Jooble API fetch exception:', fetchError);
           }
+        }
+      } else if (source.source_type === 'rss' && config.feed_url) {
+        // Generic RSS feed handler
+        const feedUrl = config.feed_url;
+        
+        // Replace placeholders if present (for dynamic feeds)
+        let finalFeedUrl = feedUrl;
+        if (feedUrl.includes('{query}') || feedUrl.includes('{location}')) {
+          const query = config.search_query || '';
+          const location = config.search_location || '';
+          finalFeedUrl = feedUrl
+            .replace('{query}', encodeURIComponent(query))
+            .replace('{location}', encodeURIComponent(location));
+        }
+        
+        const rssResponse = await fetch(finalFeedUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/rss+xml, application/xml, text/xml, */*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer': 'https://www.google.com/',
+          },
+        });
+
+        if (rssResponse.ok) {
+          const xmlText = await rssResponse.text();
+          
+          // Use generic RSS parser
+          const feed = parseGenericRSS(xmlText);
+          jobs = feed.items.map((item) => ({
+            external_id: item.guid || item.link || crypto.randomUUID(),
+            source_url: item.link,
+            title: item.title,
+            description: item.description || null,
+            company_name: item.author || null,
+            company_url: null,
+            location_city: null,
+            location_state: null,
+            location_country: 'USA',
+            salary_min: null,
+            salary_max: null,
+            job_type: null,
+            work_setting: null,
+            experience_level: null,
+            raw_data: { ...item, normalized_at: new Date().toISOString() },
+            expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          }));
+        } else {
+          result.errors.push(`RSS feed fetch failed: ${rssResponse.status} ${rssResponse.statusText}`);
         }
       }
 

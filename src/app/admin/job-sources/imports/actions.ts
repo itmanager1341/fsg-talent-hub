@@ -62,7 +62,7 @@ export async function getImportQueue(
       : item.job_import;
 
     return {
-      id: importRecord?.id || '',
+      id: importRecord?.id || item.id, // Use external_job_id if no import record exists
       external_job_id: item.id,
       company_id: importRecord?.company_id || item.matched_company_id,
       status: importRecord?.status || 'pending',
@@ -91,7 +91,7 @@ export async function approveImportAction(externalJobId: string) {
     .single();
 
   if (fetchError || !externalJob) {
-    throw new Error('External job not found');
+    return { success: false, error: 'External job not found' };
   }
 
   try {
@@ -134,7 +134,8 @@ export async function approveImportAction(externalJobId: string) {
     return { success: true, jobId };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to import job: ${errorMessage}`);
+    console.error('Error in approveImportAction:', errorMessage);
+    return { success: false, error: `Failed to import job: ${errorMessage}` };
   }
 }
 

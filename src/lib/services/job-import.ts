@@ -43,17 +43,57 @@ export async function createJobImport(
 }
 
 /**
+ * Get or create the placeholder company for external jobs without matched companies
+ */
+async function getPlaceholderCompanyId(supabase: any): Promise<string> {
+  // Try to get existing placeholder company
+  const { data: existing } = await supabase
+    .from('companies')
+    .select('id')
+    .eq('slug', 'external-job-source')
+    .single();
+
+  if (existing) {
+    return existing.id;
+  }
+
+  // If it doesn't exist, create it (shouldn't happen, but handle it)
+  const { data: created, error } = await supabase
+    .from('companies')
+    .insert({
+      name: 'External Job Source',
+      slug: 'external-job-source',
+      website: 'https://fsgtalenthub.com',
+      description: 'Placeholder company for jobs imported from external sources that have not been matched to an existing company.',
+      is_active: true,
+    })
+    .select('id')
+    .single();
+
+  if (error || !created) {
+    throw new Error('Failed to get or create placeholder company');
+  }
+
+  return created.id;
+}
+
+/**
  * Import external job into jobs table
+ * Uses regular client - RLS policies allow admins to insert jobs
  */
 export async function importExternalJob(
   externalJob: ExternalJob,
   companyId: string | null
 ): Promise<string> {
+  // Use regular client - admin RLS policies allow admins to insert jobs
   const supabase = await createClient();
+
+  // If no company matched, use placeholder company
+  const finalCompanyId = companyId || await getPlaceholderCompanyId(supabase);
 
   // Map external job fields to jobs table fields
   const jobData = {
-    company_id: companyId,
+    company_id: finalCompanyId,
     title: externalJob.title,
     slug: generateSlug(externalJob.title),
     description: externalJob.description || '',
