@@ -45,3 +45,30 @@ export async function setCompanyActive(companyId: string, active: boolean) {
   revalidatePath('/admin/companies');
 }
 
+/**
+ * Update a company's tier.
+ * Valid tiers: free, starter, standard, professional, enterprise
+ */
+export async function setCompanyTier(companyId: string, tier: string) {
+  await requireAdmin();
+  
+  // Validate tier value
+  const validTiers = ['free', 'starter', 'standard', 'professional', 'enterprise'];
+  if (!validTiers.includes(tier)) {
+    throw new Error(`Invalid tier: ${tier}. Must be one of: ${validTiers.join(', ')}`);
+  }
+
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from('companies')
+    .update({ tier })
+    .eq('id', companyId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath('/admin/companies');
+}
+

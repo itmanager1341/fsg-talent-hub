@@ -1,7 +1,7 @@
 # Company Management
 
 ## Overview
-The company management module allows admins to view, verify, activate, and deactivate all employer companies on the platform. This is essential for maintaining platform quality and trust.
+The company management module allows admins to view, verify, activate, and deactivate all employer companies on the platform. Admins can distinguish between employer companies (with registered users) and prospecting companies (created from job imports), manage company tiers, and control company access. This is essential for maintaining platform quality and trust.
 
 ## Access
 - **Who**: Admins only
@@ -13,6 +13,12 @@ The company management module allows admins to view, verify, activate, and deact
 ### Company List
 - View all company accounts
 - Display company name, slug
+- **Company Type**: Distinguishes between:
+  - **Employer Companies**: Companies with registered users (have `company_users` records)
+  - **Prospecting Companies**: Companies created from job imports (no users yet)
+- **Tier**: Current subscription tier (free, starter, standard, professional, enterprise)
+- **User Count**: Number of users associated with the company
+- **Job Count**: Number of jobs posted by the company
 - Verified/unverified status
 - Active/inactive status
 - Account creation date
@@ -26,7 +32,19 @@ The company management module allows admins to view, verify, activate, and deact
   - Active: Company can post jobs and use platform
   - Inactive: Company cannot access platform
 
+### Tier Management
+- **Assign Tiers**: Admins can assign subscription tiers to companies without payment
+- Available tiers:
+  - **Free**: Default tier, basic features
+  - **Starter**: Access to resume database
+  - **Standard**: Access to resume database
+  - **Professional**: Resume database + AI ranking (100 rankings/day)
+  - **Enterprise**: Resume database + AI ranking (unlimited)
+- Tier changes take effect immediately
+- Useful for granting premium features to employers without requiring payment
+
 ### Filtering Options
+- Filter by company type (all, employers, prospecting)
 - Filter by status (all, active, inactive)
 - Filter by verification (all, verified, unverified)
 - Combined filters supported
@@ -41,6 +59,8 @@ The company management module allows admins to view, verify, activate, and deact
 
 1. **Page Load**
    - Fetches companies from database
+   - Determines company type by checking for `company_users` records
+   - Counts users and jobs for each company
    - Applies filters from URL parameters
    - Orders by creation date (newest first)
    - Limits to 200 results
@@ -57,7 +77,13 @@ The company management module allows admins to view, verify, activate, and deact
    - Change takes effect immediately
    - Company access affected immediately
 
-4. **Filtering**
+4. **Tier Management**
+   - Admin selects tier from dropdown for each company
+   - Server action updates `companies.tier` field
+   - Change takes effect immediately
+   - Company gains access to tier-specific features
+
+5. **Filtering**
    - Admin selects filter options
    - URL updates with filter parameters
    - Page reloads with filtered results
@@ -67,11 +93,13 @@ The company management module allows admins to view, verify, activate, and deact
 
 - **Key components**: 
   - `src/app/admin/companies/page.tsx` - Company list page
+  - `src/app/admin/companies/TierSelector.tsx` - Client component for tier selection
 - **Server actions**: 
-  - `src/app/admin/companies/actions.ts` - Verify, activate, deactivate
+  - `src/app/admin/companies/actions.ts` - Verify, activate, deactivate, set tier
 - **Database tables**: 
-  - `companies` - Company accounts
-  - `company_users` - User-company associations
+  - `companies` - Company accounts (includes `tier` field)
+  - `company_users` - User-company associations (used to determine company type)
+  - `jobs` - Job postings (counted per company)
 
 ## User Roles & Permissions
 
@@ -102,6 +130,18 @@ A: Currently, companies are deactivated rather than deleted to preserve data int
 **Q: What happens to a company's jobs if I deactivate them?**
 A: Jobs remain in the system but are marked as inactive/closed. They won't appear in job search. Jobs can be reactivated if the company is reactivated.
 
+**Q: What's the difference between Employer and Prospecting companies?**
+A: **Employer Companies** have registered users who signed up and created the company account. They can log in, post jobs, and use employer features. **Prospecting Companies** were created automatically when jobs were imported from external sources. They don't have registered users yet and are used for outreach and prospecting purposes. When a prospecting company signs up, they become an employer company.
+
+**Q: How does tier management work?**
+A: Admins can assign any tier (free, starter, standard, professional, enterprise) to any company directly from the companies page. This allows granting premium features without requiring payment. The tier dropdown in the Actions column lets you change a company's tier instantly. Changes take effect immediately and grant access to tier-specific features like resume database access and AI ranking.
+
+**Q: What happens when I change a company's tier?**
+A: The change takes effect immediately. The company gains access to all features available in the new tier. For example, upgrading to "professional" grants access to the resume database and AI ranking (100 rankings/day). Downgrading removes access to premium features. This does not affect any existing subscriptions or billing - it's an admin override.
+
+**Q: Can a prospecting company become an employer company?**
+A: Yes, when a user signs up and creates a company account that matches a prospecting company (by name), or when a user is manually linked to a prospecting company, it becomes an employer company. The company type is automatically determined by the presence of `company_users` records.
+
 ## Related Features
 
 - [Dashboard](./OVERVIEW.md) - Admin overview
@@ -121,5 +161,4 @@ A: Jobs remain in the system but are marked as inactive/closed. They won't appea
 - [ ] Verification workflow
 - [ ] Company profile review queue
 - [ ] Suspension reasons
-- [ ] Company tier management
 
