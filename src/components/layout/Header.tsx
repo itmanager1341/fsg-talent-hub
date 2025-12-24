@@ -9,7 +9,9 @@ interface HeaderProps {
 }
 
 export function Header({ user, role, isAdmin }: HeaderProps) {
-  const canViewCandidates = !!user && (role === 'employer' || role === 'both' || isAdmin);
+  const isCandidate = role === 'candidate' || role === 'both';
+  const isEmployer = role === 'employer' || role === 'both';
+  const canViewCandidates = !!user && (isEmployer || isAdmin);
 
   return (
     <header className="border-b border-gray-200 bg-white">
@@ -19,39 +21,100 @@ export function Header({ user, role, isAdmin }: HeaderProps) {
             FSG Talent Hub
           </Link>
           <div className="flex items-center gap-6">
-            <Link
-              href="/jobs"
-              className="text-sm font-medium text-gray-600 hover:text-gray-900"
-            >
-              Find Jobs
-            </Link>
-            <Link
-              href="/companies"
-              className="text-sm font-medium text-gray-600 hover:text-gray-900"
-            >
-              Companies
-            </Link>
-            <Link
-              href="/employers"
-              className="text-sm font-medium text-gray-600 hover:text-gray-900"
-            >
-              For Employers
-            </Link>
-            {canViewCandidates && (
-              <Link
-                href="/candidates"
-                className="text-sm font-medium text-gray-600 hover:text-gray-900"
-              >
-                Candidates
-              </Link>
-            )}
-            {user && isAdmin && (
-              <Link
-                href="/admin"
-                className="text-sm font-medium text-gray-600 hover:text-gray-900"
-              >
-                Admin
-              </Link>
+            {!user ? (
+              // Public navigation for unauthenticated users
+              <>
+                <Link
+                  href="/jobs"
+                  className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                >
+                  Find Jobs
+                </Link>
+                <Link
+                  href="/companies"
+                  className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                >
+                  Companies
+                </Link>
+                <Link
+                  href="/employers"
+                  className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                >
+                  For Employers
+                </Link>
+              </>
+            ) : (
+              // Authenticated user navigation
+              <>
+                {isCandidate && (
+                  // Candidate navigation
+                  <>
+                    <Link
+                      href="/jobs"
+                      className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                    >
+                      Find Jobs
+                    </Link>
+                    <Link
+                      href="/companies"
+                      className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                    >
+                      Companies
+                    </Link>
+                    <Link
+                      href="/account/candidate/applications"
+                      className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                    >
+                      My Applications
+                    </Link>
+                    <Link
+                      href="/account/candidate/saved"
+                      className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                    >
+                      Saved Jobs
+                    </Link>
+                  </>
+                )}
+                {isEmployer && (
+                  // Employer navigation
+                  <>
+                    <Link
+                      href="/employers/dashboard"
+                      className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                    >
+                      Dashboard
+                    </Link>
+                    <Link
+                      href="/employers/jobs/new"
+                      className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                    >
+                      Post a Job
+                    </Link>
+                    {canViewCandidates && (
+                      <Link
+                        href="/candidates"
+                        className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                      >
+                        Candidates
+                      </Link>
+                    )}
+                    <Link
+                      href="/employers/settings"
+                      className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                    >
+                      Settings
+                    </Link>
+                  </>
+                )}
+                {isAdmin && (
+                  <Link
+                    href="/admin"
+                    className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                  >
+                    Admin
+                  </Link>
+                )}
+              </>
             )}
             {user ? (
               <UserMenu

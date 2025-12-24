@@ -73,6 +73,8 @@ export function CompanySetupForm({ userEmail }: CompanySetupFormProps) {
       setError(result.error);
       setIsSubmitting(false);
     } else {
+      // Refresh to ensure role is recognized before redirecting
+      router.refresh();
       router.push('/employers/dashboard');
     }
   }

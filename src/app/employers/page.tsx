@@ -93,7 +93,7 @@ export default function EmployersPage() {
             servicing, M&A advisory, and financial services.
           </p>
           <div className="flex items-center justify-center gap-4">
-            <Link href="/signin">
+            <Link href="/signup/employer">
               <Button size="lg">Post a Job</Button>
             </Link>
             <Link href="#pricing">
@@ -183,7 +183,7 @@ export default function EmployersPage() {
                   </ul>
 
                   <div className="mt-8">
-                    <Link href="/signin">
+                    <Link href="/signup/employer">
                       <Button
                         className="w-full"
                         variant={tier.highlighted ? 'primary' : 'outline'}
@@ -215,7 +215,7 @@ export default function EmployersPage() {
           <p className="mb-8 text-gray-600">
             Join hundreds of companies already hiring on FSG Talent Hub.
           </p>
-          <Link href="/signin">
+          <Link href="/signup/employer">
             <Button size="lg">Get Started Free</Button>
           </Link>
         </div>

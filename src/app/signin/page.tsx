@@ -23,7 +23,7 @@ export default async function SignInPage() {
             Welcome to FSG Talent Hub
           </h1>
           <p className="mt-2 text-gray-600">
-            Sign in to your account or create a new one
+            Sign in to your account
           </p>
         </div>
         <SignInForm />

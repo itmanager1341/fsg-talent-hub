@@ -5,25 +5,21 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { Button } from '@/components/ui/Button';
 
-export function SignInForm() {
+export function EmployerSignUpForm() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setMessage(null);
     setLoading(true);
 
     try {
-      /**
-       * Prefer reading values from the submitted form.
-       *
-       * This keeps the handler resilient in cases where browser automation or
-       * password managers populate the DOM value but React state lags behind.
-       */
       const form = e.currentTarget as HTMLFormElement;
       const formData = new FormData(form);
       const submittedEmail =
@@ -36,33 +32,27 @@ export function SignInForm() {
           ? String(formData.get('password'))
           : password;
 
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signUp({
         email: submittedEmail,
         password: submittedPassword,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?role=employer`,
+        },
       });
 
       if (error) {
-        // Helpful for debugging weird "nothing happens" cases in dev.
         const debug = {
           message: error.message,
           status: (error as unknown as { status?: number }).status,
           name: (error as unknown as { name?: string }).name,
         };
-        console.error('Supabase sign-in error:', JSON.stringify(debug));
-        setError(error.message || 'Sign-in failed. Please try again.');
-      } else if (!data?.session) {
-        // In some edge cases Supabase can fail without surfacing an error.
-        // Make sure the user sees *something*.
-        console.error(
-          'Supabase sign-in returned no session and no error:',
-          JSON.stringify({ data })
-        );
-        setError(
-          'Sign-in did not complete. Please try again (or refresh the page).'
-        );
+        console.error('Supabase sign-up error:', JSON.stringify(debug));
+        setError(error.message || 'Sign-up failed. Please try again.');
       } else {
-        router.push('/account');
-        router.refresh();
+        console.info('Supabase sign-up result:', data);
+        setMessage(
+          'Check your email for a confirmation link to complete your registration. After confirming, you\'ll be able to set up your company profile.'
+        );
       }
     } catch (err) {
       console.error('Unexpected auth error:', err);
@@ -90,7 +80,7 @@ export function SignInForm() {
             onChange={(e) => setEmail(e.target.value)}
             required
             className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            placeholder="you@example.com"
+            placeholder="you@company.com"
           />
         </div>
 
@@ -112,6 +102,9 @@ export function SignInForm() {
             className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             placeholder="••••••••"
           />
+          <p className="mt-1 text-xs text-gray-500">
+            Must be at least 6 characters
+          </p>
         </div>
 
         {error && (
@@ -120,27 +113,27 @@ export function SignInForm() {
           </div>
         )}
 
+        {message && (
+          <div className="rounded-lg bg-green-50 p-3 text-sm text-green-700">
+            {message}
+          </div>
+        )}
+
         <Button type="submit" disabled={loading} className="w-full">
-          {loading ? 'Signing in...' : 'Sign In'}
+          {loading ? 'Creating Account...' : 'Create Employer Account'}
         </Button>
       </form>
 
       <div className="mt-4 text-center text-sm text-gray-600">
-        Don&apos;t have an account?{' '}
+        Already have an account?{' '}
         <a
-          href="/signup/candidate"
+          href="/signin"
           className="font-medium text-blue-600 hover:text-blue-500"
         >
-          Sign up as candidate
-        </a>
-        {' or '}
-        <a
-          href="/signup/employer"
-          className="font-medium text-blue-600 hover:text-blue-500"
-        >
-          sign up as employer
+          Sign in
         </a>
       </div>
     </div>
   );
 }
+
