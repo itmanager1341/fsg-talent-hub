@@ -21,6 +21,7 @@ export default async function AccountPage({
   }
 
   // If user has a role and no setup param, redirect to appropriate dashboard
+  // This MUST happen before any rendering to prevent showing role selection
   if (role && !params.setup) {
     if (role === 'employer' || role === 'both') {
       redirect('/employers/dashboard');
@@ -29,7 +30,11 @@ export default async function AccountPage({
     }
   }
 
-  // Show role selection for new users or when setup param is present
+  // Show role selection ONLY for new users (no role) or when setup param is explicitly present
+  // If user has a role but setup param is present, still show role selection to allow adding another role
+  // IMPORTANT: This should never be true if user has a role and no setup param (redirect above should catch it)
+  const showRoleSelection = !role || !!params.setup;
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
       <div className="mb-8">
@@ -39,41 +44,47 @@ export default async function AccountPage({
         </p>
       </div>
 
-      {!role && (
+      {showRoleSelection && (
         <div className="mb-8">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            How would you like to use FSG Talent Hub?
+            {role
+              ? 'Add Another Role'
+              : 'How would you like to use FSG Talent Hub?'}
           </h2>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <a
-              href="/account/candidate/setup"
-              className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition hover:border-blue-500 hover:shadow-md"
-            >
-              <h3 className="font-semibold text-gray-900">
-                I&apos;m looking for a job
-              </h3>
-              <p className="mt-2 text-sm text-gray-600">
-                Create your candidate profile, upload your resume, and apply to
-                jobs.
-              </p>
-            </a>
-            <a
-              href="/employers/setup"
-              className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition hover:border-blue-500 hover:shadow-md"
-            >
-              <h3 className="font-semibold text-gray-900">
-                I&apos;m hiring talent
-              </h3>
-              <p className="mt-2 text-sm text-gray-600">
-                Set up your company profile and post jobs to find great
-                candidates.
-              </p>
-            </a>
+          <div className={`grid gap-4 ${(!role || (role !== 'employer' && role !== 'candidate')) ? 'sm:grid-cols-2' : ''}`}>
+            {(!role || role === 'employer') && (
+              <a
+                href="/account/candidate/setup"
+                className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition hover:border-blue-500 hover:shadow-md"
+              >
+                <h3 className="font-semibold text-gray-900">
+                  I&apos;m looking for a job
+                </h3>
+                <p className="mt-2 text-sm text-gray-600">
+                  Create your candidate profile, upload your resume, and apply to
+                  jobs.
+                </p>
+              </a>
+            )}
+            {(!role || role === 'candidate') && (
+              <a
+                href="/employers/setup"
+                className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition hover:border-blue-500 hover:shadow-md"
+              >
+                <h3 className="font-semibold text-gray-900">
+                  I&apos;m hiring talent
+                </h3>
+                <p className="mt-2 text-sm text-gray-600">
+                  Set up your company profile and post jobs to find great
+                  candidates.
+                </p>
+              </a>
+            )}
           </div>
         </div>
       )}
 
-      {role && (
+      {role && !params.setup && (
         <div className="mb-8">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">
             Your Profile

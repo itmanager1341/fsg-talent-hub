@@ -26,7 +26,7 @@ export async function createCompany(
     .from('company_users')
     .select('id')
     .eq('user_id', user.id)
-    .single();
+    .maybeSingle();
 
   if (existingCompanyUser) {
     return { error: 'You already have a company associated with your account' };
@@ -57,7 +57,7 @@ export async function createCompany(
       .from('companies')
       .select('id')
       .eq('slug', testSlug)
-      .single();
+      .maybeSingle();
 
     if (!existingCompany) {
       slug = testSlug;

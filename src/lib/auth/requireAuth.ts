@@ -96,13 +96,13 @@ export async function getUserRole(
       .select('id')
       .eq('user_id', userId)
       .eq('is_active', true)
-      .single(),
+      .maybeSingle(),
     supabase
       .from('candidates')
       .select('id')
       .eq('user_id', userId)
       .eq('is_active', true)
-      .single(),
+      .maybeSingle(),
   ]);
 
   const isEmployer = !!companyUser;
