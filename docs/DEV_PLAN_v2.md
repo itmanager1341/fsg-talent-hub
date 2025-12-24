@@ -22,13 +22,13 @@
 
 ## Overview
 
-V2 enhances the platform with AI-powered candidate features, vector search, and brand context layers deferred from V1.
+V2 enhances the platform with AI-powered candidate features, vector search, and external job aggregation.
 
 | Feature Category | Purpose | Priority | Status |
 |------------------|---------|----------|--------|
 | **AI Resume Builder** | Candidate resume optimization | High | ✅ Complete |
 | **Vector Search (pgvector)** | Job/candidate matching | High | ✅ Complete |
-| **Brand Context Layers** | FSI/AMAA themed views | High | Pending |
+| **Partner Program** | FSI/AMAA white-label instances | - | ❌ Deferred to V4 |
 | **Resume Database** | Employer candidate search | High | ✅ Complete |
 | **AI Applicant Ranking** | Employer hiring assistance | Medium | ✅ Complete |
 | **External Job Import** | Multi-source job aggregation | High | ✅ Complete |
@@ -158,13 +158,13 @@ $$ LANGUAGE SQL;
 
 ---
 
-### Phase 3: Brand Context Layers (High Priority)
+### Phase 3: Partner Program ❌ DEFERRED TO V4
 
-**PRD Reference:** Section 1.3, 1.5, 2.1
+**Status:** Deferred - Will be implemented as V4 Partner Program
 
-**Purpose:** Create themed views at `/fsi` and `/amaa`
+**Clarification (2024-12-23):** FSI and AMAA are not just "brand context layers" but will be **Partners** (resellers) hosting their own white-label instances, similar to [YMCareers](https://www.ymcareers.com/). This is a larger scope than originally planned and is deferred to V4.
 
-#### Features
+**Original Scope (Now Deferred):**
 - [ ] Brand context wrapper component
 - [ ] FSI theme configuration (colors, logo, fonts)
 - [ ] AM&AA theme configuration
@@ -172,6 +172,13 @@ $$ LANGUAGE SQL;
 - [ ] Brand-specific hero content
 - [ ] Cross-brand toggle UI
 - [ ] WordPress embedding widget
+
+**V4 Partner Program Scope (Future):**
+- [ ] Multi-tenant white-label architecture
+- [ ] Partner admin dashboard
+- [ ] Partner-specific job boards
+- [ ] Revenue sharing/billing model
+- [ ] Custom domain support
 
 #### Architecture
 ```

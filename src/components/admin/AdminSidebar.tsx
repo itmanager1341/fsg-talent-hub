@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabaseClient';
 
 interface NavItem {
   href: string;
@@ -75,6 +76,13 @@ interface AdminSidebarProps {
 
 export function AdminSidebar({ className = '' }: AdminSidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.push('/');
+    router.refresh();
+  };
 
   const isActive = (href: string) => {
     if (href === '/admin') {
@@ -121,7 +129,7 @@ export function AdminSidebar({ className = '' }: AdminSidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-gray-200 p-4">
+      <div className="border-t border-gray-200 p-4 space-y-3">
         <Link
           href="/"
           className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
@@ -131,6 +139,15 @@ export function AdminSidebar({ className = '' }: AdminSidebarProps) {
           </svg>
           Back to site
         </Link>
+        <button
+          onClick={handleSignOut}
+          className="flex w-full items-center gap-2 text-sm text-red-600 hover:text-red-700"
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          Sign Out
+        </button>
       </div>
     </aside>
   );

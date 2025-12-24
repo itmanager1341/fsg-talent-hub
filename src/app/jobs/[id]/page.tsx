@@ -23,6 +23,8 @@ interface JobDetails {
   salary_max: number | null;
   show_salary: boolean;
   published_at: string | null;
+  is_external: boolean;
+  external_url: string | null;
   company: {
     id: string;
     name: string;
@@ -92,6 +94,8 @@ async function getJob(id: string): Promise<JobDetails | null> {
       salary_max,
       show_salary,
       published_at,
+      is_external,
+      external_url,
       companies(id, name, slug, logo_url, website, description)
     `
     )
@@ -105,7 +109,9 @@ async function getJob(id: string): Promise<JobDetails | null> {
 
   return {
     ...data,
-    company: Array.isArray(data.companies) ? data.companies[0] ?? null : null,
+    company: Array.isArray(data.companies)
+      ? data.companies[0] ?? null
+      : data.companies ?? null,
   } as JobDetails;
 }
 
@@ -199,7 +205,14 @@ export default async function JobDetailPage({
 
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">{job.title}</h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-3xl font-bold text-gray-900">{job.title}</h1>
+                {job.is_external && (
+                  <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+                    External
+                  </span>
+                )}
+              </div>
               {job.company && (
                 <p className="mt-2 text-lg text-gray-600">{job.company.name}</p>
               )}
@@ -210,7 +223,15 @@ export default async function JobDetailPage({
                 candidateId={candidateId}
                 isSaved={isSaved}
               />
-              {user ? (
+              {job.is_external && job.external_url ? (
+                <a
+                  href={job.external_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button size="lg">Apply on Company Site</Button>
+                </a>
+              ) : user ? (
                 <Link href={`/jobs/${id}/apply`}>
                   <Button size="lg">Apply Now</Button>
                 </Link>
@@ -313,7 +334,18 @@ export default async function JobDetailPage({
             )}
 
             <div className="mt-4">
-              {user ? (
+              {job.is_external && job.external_url ? (
+                <a
+                  href={job.external_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block"
+                >
+                  <Button className="w-full" size="lg">
+                    Apply on Company Site
+                  </Button>
+                </a>
+              ) : user ? (
                 <Link href={`/jobs/${id}/apply`} className="block">
                   <Button className="w-full" size="lg">
                     Apply Now

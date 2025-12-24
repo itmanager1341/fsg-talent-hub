@@ -186,16 +186,103 @@ export function extractJobType(
 }
 
 /**
+ * Decode HTML entities
+ */
+function decodeHtmlEntities(text: string): string {
+  const entities: Record<string, string> = {
+    '&nbsp;': ' ',
+    '&amp;': '&',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&quot;': '"',
+    '&#39;': "'",
+    '&apos;': "'",
+    '&#x27;': "'",
+    '&#x2F;': '/',
+    '&ndash;': '–',
+    '&mdash;': '—',
+    '&hellip;': '…',
+    '&bull;': '•',
+    '&trade;': '™',
+    '&reg;': '®',
+    '&copy;': '©',
+  };
+
+  let result = text;
+  for (const [entity, char] of Object.entries(entities)) {
+    result = result.replace(new RegExp(entity, 'gi'), char);
+  }
+
+  // Handle numeric entities like &#160;
+  result = result.replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)));
+  result = result.replace(/&#x([a-fA-F0-9]+);/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
+
+  return result;
+}
+
+/**
+ * Strip HTML tags from text
+ */
+function stripHtmlTags(text: string): string {
+  return text
+    // Remove HTML tags
+    .replace(/<[^>]+>/g, ' ')
+    // Remove CDATA sections
+    .replace(/<!\[CDATA\[(.*?)\]\]>/gi, '$1')
+    // Clean up whitespace left by removed tags
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Clean job description from aggregator artifacts
+ */
+function cleanAggregatorArtifacts(text: string): string {
+  return text
+    // Remove leading/trailing ellipses and whitespace
+    .replace(/^[\s.…]+/, '')
+    .replace(/[\s.…]+$/, '')
+    // Remove "Read more" type links
+    .replace(/\s*Read more\s*\.?\s*$/i, '')
+    // Remove duplicated ellipses
+    .replace(/\.{3,}/g, '...')
+    .replace(/…+/g, '…')
+    // Clean up excessive whitespace
+    .replace(/\s{3,}/g, '  ')
+    .trim();
+}
+
+/**
  * Clean and normalize job description
  */
 export function normalizeDescription(description: string | null | undefined): string | undefined {
   if (!description) return undefined;
-  
-  return description
-    .trim()
-    .replace(/\s+/g, ' ')
+
+  let cleaned = description;
+
+  // 1. Decode HTML entities
+  cleaned = decodeHtmlEntities(cleaned);
+
+  // 2. Strip HTML tags
+  cleaned = stripHtmlTags(cleaned);
+
+  // 3. Clean aggregator artifacts
+  cleaned = cleanAggregatorArtifacts(cleaned);
+
+  // 4. Normalize whitespace
+  cleaned = cleaned
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
-    .substring(0, 10000); // Limit length
+    .replace(/[ \t]+/g, ' ')
+    .trim();
+
+  // 5. Limit length
+  if (cleaned.length > 10000) {
+    cleaned = cleaned.substring(0, 10000);
+  }
+
+  return cleaned || undefined;
 }
 
 /**

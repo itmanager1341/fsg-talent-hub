@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { User } from '@supabase/supabase-js';
+import { UserMenu } from './UserMenu';
 
 interface HeaderProps {
   user?: User | null;
@@ -53,12 +54,11 @@ export function Header({ user, role, isAdmin }: HeaderProps) {
               </Link>
             )}
             {user ? (
-              <Link
-                href="/account"
-                className="text-sm font-medium text-gray-600 hover:text-gray-900"
-              >
-                Account
-              </Link>
+              <UserMenu
+                email={user.email || 'User'}
+                role={role}
+                isAdmin={isAdmin}
+              />
             ) : (
               <Link
                 href="/signin"

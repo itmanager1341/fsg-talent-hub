@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import type { ExternalJob } from './job-ingestion';
+import { normalizeDescription, normalizeJobTitle } from './job-normalization';
 
 export interface JobImport {
   id: string;
@@ -144,11 +145,15 @@ export async function importExternalJob(
   }
 
   // Map external job fields to jobs table fields
+  // Normalize title and description to clean up HTML entities and tags
+  const cleanTitle = normalizeJobTitle(externalJob.title);
+  const cleanDescription = normalizeDescription(externalJob.description) || '';
+
   const jobData = {
     company_id: finalCompanyId,
-    title: externalJob.title,
-    slug: generateSlug(externalJob.title),
-    description: externalJob.description || '',
+    title: cleanTitle,
+    slug: generateSlug(cleanTitle),
+    description: cleanDescription,
     location_city: externalJob.location_city,
     location_state: externalJob.location_state,
     location_country: externalJob.location_country || 'USA',

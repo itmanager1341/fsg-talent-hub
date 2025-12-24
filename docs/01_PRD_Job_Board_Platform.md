@@ -1,9 +1,75 @@
 # FSG Job Board Platform - Product Requirements Document
 
-**Version:** 1.0  
-**Date:** 2025-12-10  
-**Status:** ✅ Approved by Senior Development Team  
+**Version:** 1.0
+**Date:** 2025-12-10
+**Status:** ✅ Approved by Senior Development Team
 **Owners:** FSG Media (Product), Development Team
+
+---
+
+## Implementation Status (Updated: 2024-12-23)
+
+| Version | Phase | Status | Completion |
+|---------|-------|--------|------------|
+| **V0** | Foundation | ✅ Complete | 100% |
+| **V1** | Public Launch | ✅ Complete | 100% |
+| **V2** | Enhanced Platform (AI + Import) | 🟡 In Progress | 83% |
+| **V3** | ATS Layer (Messaging, Scheduling) | ⏳ Not Started | 0% |
+| **V4** | Partner Program (White-label) | ⏳ Not Started | 0% |
+
+### What's Complete
+- [x] Supabase database schema with RLS
+- [x] Authentication and role management (admin/employer/candidate)
+- [x] Job search with filters
+- [x] Employer portal (post jobs, view applicants)
+- [x] Candidate portal (profile, resume, applications)
+- [x] AI job description generator (Edge Function)
+- [x] AI resume builder and analyzer (Edge Functions)
+- [x] AI applicant ranking with match scores
+- [x] Vector search with pgvector
+- [x] Stripe billing infrastructure
+- [x] HubSpot one-way sync
+- [x] External job import system (Jooble, Adzuna, RSS)
+- [x] Admin portal with job sources management
+
+### What's Deferred to V4 (Partner Program)
+- [ ] Partner white-label instances (FSI, AMAA as resellers)
+- [ ] WordPress embeddable widget
+- [ ] Member discount pricing
+- [ ] HubSpot bidirectional sync
+
+### Next Up (V3)
+- [ ] Messaging system between employers and candidates
+- [ ] Interview scheduling
+- [ ] Application pipeline/stages
+- [ ] Enhanced analytics dashboard
+
+📋 **See:** [DEV_PLAN_v2.md](./DEV_PLAN_v2.md) for detailed implementation status
+
+---
+
+## Terminology & Definitions
+
+> **Important:** These terms have specific meanings in this platform. Use them consistently.
+
+| Term | Definition | Database | Example |
+|------|------------|----------|---------|
+| **Company** | The business that is hiring. Where candidates would work if hired. | `companies` table | "BDO USA", "EY", "Stout" |
+| **Employer** | A user account that posts jobs on behalf of a Company. Not a business entity. | `company_users` table (links user → company) | John Smith who posts jobs for BDO USA |
+| **Candidate** | A user account that applies to jobs and manages their career profile. | `candidates` table | Jane Doe seeking M&A advisory role |
+| **Admin** | A user with administrative privileges to manage the platform. | `user_roles` table (role='admin') | Platform administrator |
+| **Partner** | A reseller/white-label provider hosting their own instance (Future - V4). Like YMCareers. | TBD | FSI, AMAA (future) |
+| **Association** | Originally planned as brand contexts. Will become Partners in V4. | `associations` table | FSI, AMAA |
+| **External Job** | A job imported from external sources (Jooble, Indeed, etc.) vs. posted by an Employer. | `external_jobs`, `jobs.is_external` | Job imported from Jooble |
+
+### Key Relationships
+```
+Employer (user) ──belongs_to──► Company (business)
+Company ──has_many──► Jobs
+Job ──has_many──► Applications
+Candidate (user) ──has_many──► Applications
+Partner (V4) ──hosts──► White-label Platform Instance
+```
 
 ---
 
